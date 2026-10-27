@@ -89,7 +89,8 @@ app.get('/api/l/:codigo', limite('link', 60), async (c) => {
 app.post('/api/l/:codigo/soltar', limite('soltar', 20), async (c) => {
   const cod = c.req.param('codigo').toUpperCase(); if (!COD.test(cod)) return c.json({ ok: false, erro: 'link inválido' }, 404);
   const b = await c.req.json().catch(() => ({} as any)), d = String(b.desejo || '').trim().slice(0, 90);
-  if (d && !desejoOk(d)) return c.json({ ok: false, erro: 'esse desejo não passou no filtro (sem palavrão, link, telefone ou @)' }, 400);
+  if (d.length < 2) return c.json({ ok: false, erro: 'escreva seu desejo pra 2027' }, 400);
+  if (!desejoOk(d)) return c.json({ ok: false, erro: 'esse desejo não passou no filtro (sem palavrão, link, telefone ou @)' }, 400);
   const l = await q1<{ id: number }>(`update lanternas set estado = 'no_ceu', solta_em = now(), desejo = coalesce(nullif($2, ''), desejo), desejo_oculto = case when $2 <> '' then false else desejo_oculto end
                                        where codigo = $1 and estado = 'pendente' and not oculta returning id`, [cod, d]);
   if (!l) { const ja = await q1<{ id: number }>(`select id from lanternas where codigo = $1 and estado = 'no_ceu'`, [cod]); return ja ? c.json({ ok: true, id: ja.id, ja: true }) : c.json({ ok: false, erro: 'esse link não existe ou expirou' }, 404); }

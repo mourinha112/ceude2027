@@ -124,6 +124,7 @@ select.in option { color: #111; }
 .exemplo { background: var(--papel); color: var(--tinta-papel); border-radius: 4px 14px 14px 14px; padding: 12px 14px; }
 .exemplo small { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: #8a7d6b; font-weight: 800; }
 .exemplo p { margin: 4px 0 0; font-family: var(--serif); font-style: italic; font-size: 20px; }
+.exemplo .ex-alt { display: block; margin-top: 8px; text-transform: none; letter-spacing: 0; font-weight: 700; font-size: 12px; color: #8a7d6b; }
 .passos { margin: 16px 0 6px; padding: 0; list-style: none; counter-reset: p; display: flex; flex-direction: column; gap: 10px; }
 .passos li { counter-increment: p; display: flex; gap: 12px; align-items: flex-start; font-size: 14.5px; line-height: 1.35; color: #e6e0f0; }
 .passos li::before { content: counter(p); flex: none; width: 26px; height: 26px; border-radius: 50%; background: var(--ouro); color: #24160a; display: grid; place-items: center; font-size: 13px; font-weight: 800; }

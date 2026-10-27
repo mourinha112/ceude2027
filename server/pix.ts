@@ -56,7 +56,7 @@ export function registrarPix(app: Hono) {
     }
     if (!tipo || !handle) return c.json({ ok: false, erro: 'escolha a lanterna e digite o seu @' }, 400);
     if ((tipo === 'casal' || tipo === 'presente') && !par) return c.json({ ok: false, erro: 'digite o @ da outra pessoa' }, 400);
-    if (tipo !== 'dourada' && !codigo && !desejoOk(desejo)) return c.json({ ok: false, erro: 'esse desejo não passou no filtro (sem palavrão, link, telefone ou @)' }, 400);
+    if ((codigo || tipo !== 'dourada') && !desejoOk(desejo)) return c.json({ ok: false, erro: 'esse desejo não passou no filtro (sem palavrão, link, telefone ou @)' }, 400);
     if (desejo && !desejoOk(desejo)) return c.json({ ok: false, erro: 'esse desejo não passou no filtro' }, 400);
     const valor = config.precos[tipo], id = randomUUID();
     const email = /^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(String(b.email || '')) ? String(b.email) : `pix+${id.slice(0, 8)}@${new URL(config.site).hostname.replace(/^localhost$/, 'ceude2027.com.br')}`;

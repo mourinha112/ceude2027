@@ -25,8 +25,9 @@ const PUBLICAS = [
 ];
 const ALFA = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export const novoCodigo = () => Array.from(randomBytes(8), (x) => ALFA[x % ALFA.length]).join('');
-export const textoDirect = (h: string, desejo: string, oculto: boolean, cidade: string, codigo: string) =>
-  `Oi @${h}! ${oculto ? 'Seu desejo' : `Seu desejo “${desejo}”`} está pronto pra subir no céu de ${cidade} 🏮\n\nEscolha sua lanterna e solte aqui 👇\n${config.site}/l/${codigo}\n\n(link só seu · se não abrir em 24h, ela sobe grátis sozinha)`;
+export const textoDirect = (h: string, desejo: string, cidade: string, codigo: string) => desejo
+  ? `Oi @${h}! Seu desejo “${desejo}” está pronto pra subir no céu de ${cidade} 🏮\n\nConfira, escolha sua lanterna e solte aqui 👇\n${config.site}/l/${codigo}\n\n(link só seu · se não abrir em 24h, ela sobe grátis sozinha)`
+  : `Oi @${h}! Sua lanterna no céu de ${cidade} está te esperando 🏮\n\nEscreva seu desejo pra 2027, escolha sua lanterna e solte aqui 👇\n${config.site}/l/${codigo}\n\n(link só seu · seu desejo só aparece no céu quando você soltar)`;
 
 export async function processarComentario(v: { id: string; text?: string; from?: { id?: string; username?: string }; media?: { id?: string }; parent_id?: string }) {
   if (!v?.id || !v.from?.username) return 'ignorado';
@@ -44,17 +45,18 @@ export async function processarComentario(v: { id: string; text?: string; from?:
   // ainda tem uma pendente (comentou de novo antes de escolher): atualiza o desejo e reaproveita o mesmo link
   const pend = await q1<{ id: number; codigo: string }>(`select id, codigo from lanternas where lower(handle) = $1 and estado = 'pendente' order by id desc limit 1`, [h]);
   const { cidade, desejo } = lerComentario(texto);
-  const ok = desejo.length >= 2 && desejoOk(desejo);
-  const des = ok ? desejo : 'um desejo guardado em segredo 🤫', cid = cidade?.nome || 'Brasil';
+  const vazio = desejo.replace(/[^\p{L}\p{N}]/gu, '').length < 2;   // só a cidade (ou só emoji): o desejo é escrito no jogo
+  const ok = !vazio && desejoOk(desejo);
+  const des = ok ? desejo : '', cid = cidade?.nome || 'Brasil';
   let l: { id: number; codigo: string } | undefined;
-  if (pend) { await q(`update lanternas set desejo = $2, desejo_oculto = $3, cidade = $4, uf = $5 where id = $1`, [pend.id, des, !ok, cid, cidade?.uf || '']); l = pend; }
+  if (pend) { await q(`update lanternas set desejo = $2, desejo_oculto = $3, cidade = $4, uf = $5 where id = $1`, [pend.id, des, !ok && !vazio, cid, cidade?.uf || '']); l = pend; }
   else l = await q1<{ id: number; codigo: string }>(
     `insert into lanternas (handle, desejo, desejo_oculto, cidade, uf, tipo, origem, ig_comment_id, estado, codigo) values ($1, $2, $3, $4, $5, 0, 'ig', $6, 'pendente', $7) on conflict (ig_comment_id) do nothing returning id, codigo`,
-    [h, des, !ok, cid, cidade?.uf || '', v.id, novoCodigo()]);
+    [h, des, !ok && !vazio, cid, cidade?.uf || '', v.id, novoCodigo()]);
   if (!l) return 'duplicado';
   const pub = PUBLICAS[Math.floor(Math.random() * PUBLICAS.length)](h);
   await q(`update ig_comentarios set estado = 'pendente', lanterna_id = $2, resposta = $3, resposta_estado = $4, direct = $5, direct_estado = $6 where comment_id = $1`,
-    [v.id, l.id, pub, config.ig.responder ? 'pendente' : 'desligada', textoDirect(h, des, !ok, cid, l.codigo), config.ig.responder && !pend ? 'pendente' : 'desligada']);   // quem já recebeu o link não ganha outro direct
+    [v.id, l.id, pub, config.ig.responder ? 'pendente' : 'desligada', textoDirect(h, des, cid, l.codigo), config.ig.responder && !pend ? 'pendente' : 'desligada']);   // quem já recebeu o link não ganha outro direct
   return 'pendente';
 }
 
@@ -87,7 +89,7 @@ async function responderFila() {
 
 /* quem não escolheu em 24h: a lanterna sobe grátis sozinha (ninguém fica sem) */
 async function soltarEsquecidas() {
-  const l = await q<{ id: number }>(`update lanternas set estado = 'no_ceu', solta_em = now() where estado = 'pendente' and criado_em < now() - interval '24 hours' returning id`);
+  const l = await q<{ id: number }>(`update lanternas set estado = 'no_ceu', solta_em = now(), desejo = case when desejo = '' then 'um desejo guardado em segredo 🤫' else desejo end where estado = 'pendente' and criado_em < now() - interval '24 hours' returning id`);
   for (const x of l) aoVivo(x.id);
 }
 
