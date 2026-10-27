@@ -15,7 +15,7 @@ export const config = {
   segredo: env('CHAVE_SESSAO', 'troque-isto'),
   ig: {
     appSecret: env('IG_APP_SECRET'), verifyToken: env('IG_VERIFY_TOKEN'), contaId: env('IG_CONTA_ID'), token: env('IG_TOKEN'),
-    versao: env('IG_GRAPH_VERSAO', 'v23.0'), responder: env('IG_RESPONDER', '1') === '1', usuario: env('IG_USUARIO', 'ceude2027'),
+    versao: env('IG_GRAPH_VERSAO', 'v26.0'), responder: env('IG_RESPONDER', '1') === '1', usuario: env('IG_USUARIO', 'ceude2027'),
   },
   mp: { token: env('MP_ACCESS_TOKEN'), segredoWebhook: env('MP_WEBHOOK_SECRET') },
   precos: { dourada: 4.9, casal: 7.9, presente: 4.9 } as Record<string, number>,

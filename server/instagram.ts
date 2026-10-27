@@ -110,7 +110,7 @@ export function registrarInstagram(app: Hono) {
     const bruto = Buffer.from(await c.req.arrayBuffer());
     if (!assinaturaOk(bruto, c.req.header('x-hub-signature-256'))) return c.json({ ok: false }, 401);
     let corpo: any; try { corpo = JSON.parse(bruto.toString('utf8')); } catch { return c.json({ ok: false }, 400); }
-    for (const e of corpo?.entry || []) for (const ch of e?.changes || []) if (ch?.field === 'comments') { try { await processarComentario(ch.value); } catch (err) { console.error('[ig] comentário', err); } }
+    for (const e of corpo?.entry || []) if (String(e?.id ?? '') === config.ig.contaId) for (const ch of e?.changes || []) if (ch?.field === 'comments') { try { await processarComentario(ch.value); } catch (err) { console.error('[ig] comentário', err); } }
     return c.json({ ok: true });
   });
   setInterval(() => void responderFila().catch((e) => console.error('[ig] fila', e)), 3000);
