@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Céu de 2027 · admin</title>
+  <style>
+    :root { --b: #0f1230; --c: #171a3f; --l: rgba(255,255,255,.12); --o: #f5b942; --t: #f5f1e8; --m: #a9a7c4; }
+    * { box-sizing: border-box; } body { margin: 0; background: #070a1f; color: var(--t); font: 600 14px/1.4 Manrope, system-ui, sans-serif; }
+    main { max-width: 1100px; margin: 0 auto; padding: 18px; } h1 { font-family: Georgia, serif; font-weight: 500; color: var(--o); margin: 0 0 14px; }
+    h2 { font-size: 15px; margin: 0 0 10px; } .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .k { background: var(--b); border: 1px solid var(--l); border-radius: 14px; padding: 12px; } .k b { display: block; font-size: 26px; color: var(--o); } .k small { color: var(--m); }
+    section { background: var(--b); border: 1px solid var(--l); border-radius: 16px; padding: 14px; margin-bottom: 14px; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; } td, th { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--l); vertical-align: top; } th { color: var(--m); font-weight: 700; }
+    input, select { background: var(--c); border: 1px solid var(--l); color: var(--t); border-radius: 10px; padding: 9px 10px; font: inherit; } button { background: var(--o); color: #24160a; border: 0; border-radius: 10px; padding: 9px 14px; font: inherit; font-weight: 800; cursor: pointer; }
+    button.s { background: none; border: 1px solid var(--l); color: var(--t); padding: 5px 9px; } .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; } .av { color: #ffb36b; } .ok { color: #7be08f; } .er { color: #ff8080; } .mu { color: var(--m); }
+    #login { max-width: 320px; margin: 18vh auto; display: flex; flex-direction: column; gap: 10px; }
+  </style>
+</head>
+<body>
+  <main id="app"></main>
+  <script type="module" src="/src/admin.ts"></script>
+</body>
+</html>
