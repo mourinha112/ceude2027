@@ -17,8 +17,9 @@ export const config = {
     appSecret: env('IG_APP_SECRET'), verifyToken: env('IG_VERIFY_TOKEN'), contaId: env('IG_CONTA_ID'), token: env('IG_TOKEN'),
     versao: env('IG_GRAPH_VERSAO', 'v26.0'), responder: env('IG_RESPONDER', '1') === '1', usuario: env('IG_USUARIO', 'ceude2027'),
   },
-  mp: { token: env('MP_ACCESS_TOKEN'), segredoWebhook: env('MP_WEBHOOK_SECRET') },
-  precos: { dourada: 4.9, casal: 7.9, presente: 4.9 } as Record<string, number>,
+  mp: { token: env('MP_ACCESS_TOKEN'), segredoWebhook: env('MP_WEBHOOK_SECRET'), api: env('MP_API', 'https://api.mercadopago.com') },
+  precos: { dourada: 4.9, casal: 7.9, presente: 4.9, familia: 14.9, topo: 9.9 } as Record<string, number>,
+  horasTopo: 24,
   virada: Date.UTC(2027, 0, 1, 3, 0, 0),
   producao: env('NODE_ENV') === 'production',
 };

@@ -210,3 +210,21 @@ select.in option { color: #111; }
 @media (prefers-reduced-motion: reduce) { * { animation-duration: 0s !important; } }
 .btn.papel.escuro { background: var(--tinta); color: var(--papel); box-shadow: 0 3px 0 #000; }
 .btn.papel.escuro svg { color: var(--ouro); }
+
+/* vendas: topo, família */
+.carimbo.topo { margin-left: 6px; color: var(--tinta); border-color: var(--tinta); background: var(--ouro2); transform: rotate(1.5deg); }
+.upsell .seta { flex: none; width: 22px; height: 26px; background: linear-gradient(var(--ouro), var(--ouro)) 50% 100% / 3px 70% no-repeat; position: relative; }
+.upsell .seta::before { content: ''; position: absolute; left: 50%; top: 0; margin-left: -8px; border: 8px solid transparent; border-top: 0; border-bottom: 10px solid var(--ouro); }
+.upsell.leve .seta { background-image: linear-gradient(var(--brasa), var(--brasa)); } .upsell.leve .seta::before { border-bottom-color: var(--brasa); }
+.op-fam { width: 100%; margin-top: 7px; display: flex; align-items: center; gap: 10px; border: 1.5px solid rgba(30, 26, 40, .18); background: linear-gradient(90deg, #fff3cf, var(--papel3) 60%); border-radius: 6px; padding: 11px 12px; color: var(--tinta); text-align: left; }
+.op-fam .mini-l { flex: none; width: 13px; height: 17px; margin: 0 -7px 0 0; animation: none; background: linear-gradient(180deg, #f2b33d, #fff3c4); box-shadow: 0 0 10px 2px rgba(242, 179, 61, .5); }
+.op-fam .mini-l:nth-child(2) { width: 16px; height: 21px; margin-top: -8px; }
+.op-fam div { flex: 1; display: flex; flex-direction: column; margin-left: 10px; }
+.op-fam b { font-family: var(--disp); font-weight: 800; font-size: 18px; text-transform: uppercase; line-height: 1.05; } .op-fam small { font-size: 11.5px; color: var(--mudo); }
+.op-fam em { font-style: normal; font-weight: 700; font-size: 15px; color: var(--brasa); white-space: nowrap; }
+.op-fam.on { border: 2px solid var(--tinta); background: #fff; padding: 10.5px 11.5px; } .op-fam.off { opacity: .45; }
+.fam-box[hidden] { display: none; } .fam-box { margin-top: 6px; }
+.modos { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 6px; }
+.modo { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; border: 1.5px solid rgba(30, 26, 40, .18); background: var(--papel3); border-radius: 6px; padding: 10px 12px; color: var(--tinta); text-align: left; }
+.modo b { font-family: var(--disp); font-weight: 800; font-size: 18px; text-transform: uppercase; } .modo span { font-weight: 700; color: var(--brasa); font-size: 14px; } .modo i { font-style: normal; font-size: 11px; color: var(--mudo); }
+.modo.on { border: 2px solid var(--tinta); background: #fff; padding: 9.5px 11.5px; }

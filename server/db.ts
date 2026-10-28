@@ -49,6 +49,9 @@ create table if not exists pagamentos (
   status text not null default 'pendente', lanterna_id int, codigo text, criado_em timestamptz not null default now(), pago_em timestamptz
 );
 alter table pagamentos add column if not exists codigo text;
+alter table pagamentos add column if not exists alvo int;            -- topo: a lanterna que sobe pro topo
+alter table pagamentos add column if not exists nomes text[];        -- família: os @ de quem ganha
+alter table lanternas add column if not exists destaque_ate timestamptz;   -- no topo do céu da cidade até essa hora
 create table if not exists pedidos_empresa (id serial primary key, nome text, ig text, zap text, cidade text, pacote text, criado_em timestamptz not null default now(), visto boolean not null default false);
 create table if not exists config (chave text primary key, valor text not null, atualizado_em timestamptz not null default now());
 `;

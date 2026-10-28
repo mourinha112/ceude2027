@@ -22,7 +22,7 @@ Teste sem a Meta: `POST /api/dev/comentario {"username":"teste","texto":"Recife 
 
 ## Subir no VPS
 ```
-bash deploy/instalar.sh ceude2027.com.br https://github.com/SEU_USUARIO/ceu2027.git   # uma vez
+bash deploy/instalar.sh ceude2027.com.br https://github.com/mourinha112/ceude2027.git   # uma vez
 bash /srv/ceu2027/app/deploy/atualizar.sh                                              # a cada atualização
 ```
 Admin: `https://SITE/admin` (a senha aparece no fim da instalação e fica em `/srv/ceu2027/app/.env`).
@@ -40,4 +40,7 @@ Perfil do Céu: conta **profissional** (criador ou empresa). No app da Meta (pod
 - Sem token, o site mostra as lanternas pagas como "em breve" e tudo continua grátis.
 - O servidor só libera a lanterna depois de confirmar o pagamento na própria API do Mercado Pago.
 
-Preços: dourada R$ 4,90 · casal R$ 7,90 · presente R$ 4,90 (em `server/config.ts`).
+Preços: dourada R$ 4,90 · casal R$ 7,90 · presente R$ 4,90 · família (4 douradas) R$ 14,90 · topo do céu da cidade por 24h R$ 9,90 (em `server/config.ts`).
+
+## Página para lojas
+`https://SITE/empresas` · personalize o link antes de mandar no direct: `/empresas?loja=Padaria%20X&cidade=Recife&ig=padariax`. Os pedidos caem no admin.

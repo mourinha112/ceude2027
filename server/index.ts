@@ -32,9 +32,10 @@ function limite(nome: string, max: number, janelaMs = 60_000) {
 app.use('*', async (c, next) => { await next(); c.header('x-content-type-options', 'nosniff'); c.header('referrer-policy', 'strict-origin-when-cross-origin'); });
 
 /* ---------- formato compacto das lanternas ---------- */
-type Linha = { id: number; handle: string; desejo: string; cidade: string; uf: string; tipo: number; par: string | null; de: string | null; forca: number; empresa: any; criado_em: Date };
-const COLS = `id, handle, desejo, cidade, uf, tipo, par, de, forca, empresa, criado_em`;
-const compacto = (l: Linha) => [l.id, l.handle, l.desejo, l.cidade + (l.uf ? '|' + l.uf : ''), l.tipo, Math.round(l.forca * 100) / 100, l.par || '', l.de || '', l.empresa ? [l.empresa.nome, l.empresa.ig || '', l.empresa.oferta || '', l.empresa.cor || '#3ff0d8'] : 0];
+type Linha = { id: number; handle: string; desejo: string; cidade: string; uf: string; tipo: number; par: string | null; de: string | null; forca: number; topo: boolean; empresa: any; criado_em: Date };
+// no topo (pago, 24h) a força vale 3: acima de qualquer lanterna fortalecida (máx. 2,5). O site reconhece por forca >= 3.
+const COLS = `id, handle, desejo, cidade, uf, tipo, par, de, forca, coalesce(destaque_ate > now(), false) topo, empresa, criado_em`;
+const compacto = (l: Linha) => [l.id, l.handle, l.desejo, l.cidade + (l.uf ? '|' + l.uf : ''), l.tipo, l.topo ? 3 : Math.round(l.forca * 100) / 100, l.par || '', l.de || '', l.empresa ? [l.empresa.nome, l.empresa.ig || '', l.empresa.oferta || '', l.empresa.cor || '#3ff0d8'] : 0];
 
 let cacheCeu: { em: number; corpo: Record<string, any> } | null = null;
 app.get('/api/ceu', limite('ceu', 120), async (c) => {
@@ -43,7 +44,7 @@ app.get('/api/ceu', limite('ceu', 120), async (c) => {
     q1<{ n: number; c: number }>(`select count(*)::int n, count(distinct cidade || uf)::int c from lanternas where not oculta and estado = 'no_ceu'`),
     q<{ cidade: string; uf: string; n: number }>(`select cidade, uf, count(*)::int n from lanternas where not oculta and estado = 'no_ceu' group by 1, 2 order by 3 desc limit 300`),
     q<Linha>(`select ${COLS} from lanternas where not oculta and estado = 'no_ceu' order by id desc limit 3500`),
-    q<Linha>(`select ${COLS} from lanternas where not oculta and estado = 'no_ceu' and (tipo in (1, 2, 3) or forca > 0.3) order by forca desc, id desc limit 1200`),
+    q<Linha>(`select ${COLS} from lanternas where not oculta and estado = 'no_ceu' and (tipo in (1, 2, 3) or forca > 0.3 or destaque_ate > now()) order by (destaque_ate > now()) is true desc, forca desc, id desc limit 1200`),
   ]);
   const vistos = new Set<number>(), lista: unknown[] = [];
   for (const l of [...fortes, ...recentes]) if (!vistos.has(l.id)) { vistos.add(l.id); lista.push(compacto(l)); }
@@ -145,6 +146,10 @@ if (!config.producao) app.post('/api/dev/comentario', async (c) => {
   cacheCeu = null; return c.json({ ok: true, r });
 });
 
+// rotas do Instagram e do Pix ANTES do site: o app.get('*') do site engoliria os GET delas (webhook e consulta do Pix)
+await migrar();
+registrarInstagram(app); registrarPix(app);
+
 /* ---------- site (produção) ---------- */
 const dist = resolve(import.meta.dirname, '../dist');
 if (existsSync(dist)) {
@@ -152,11 +157,10 @@ if (existsSync(dist)) {
   app.use('/*', serveStatic({ root: dist }));
   const indice = () => readFileSync(resolve(dist, 'index.html'), 'utf8');
   app.get('/admin', (c) => c.html(readFileSync(resolve(dist, 'admin.html'), 'utf8')));
+  app.get('/empresas', (c) => c.html(readFileSync(resolve(dist, 'empresas.html'), 'utf8')));
   app.get('*', (c) => c.html(indice()));   // /@handle e afins caem no app
 }
 
-await migrar();
 const m = await q1<{ m: number }>(`select coalesce(max(id), 0)::int m from lanternas`); aoVivo(m!.m);
-registrarInstagram(app); registrarPix(app);
 const faltando = conferir(); if (faltando.length) console.warn('[ceu] configuração faltando:\n - ' + faltando.join('\n - '));
 serve({ fetch: app.fetch, port: config.porta }, () => console.log(`[ceu] no ar em http://localhost:${config.porta}`));
