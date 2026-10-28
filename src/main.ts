@@ -64,7 +64,7 @@ const lobby = el('section', 'lobby');
   meio.append(tit, el('p', 'lb-sub', 'Uma lanterna com o seu desejo no céu da sua cidade. À meia-noite do dia 31, todas viram fogos, ao mesmo tempo.'), cont, bil);
   const acoes = el('div', 'lb-acoes');
   acoes.append(bt('btn papel grande', `${ICO.lanterna}<span>Soltar minha lanterna</span>`, () => { entrarNoCeu(); setTimeout(comoSoltar, 700); }), bt('lb-ver', 'só quero ver o céu', () => entrarNoCeu()));
-  const como = el('p', 'lb-como'); como.innerHTML = `É só <b>comentar sua cidade</b> no post do ${MARCA.ig}. Chega um <b>link no seu direct</b>, você escreve o desejo e solta.`;
+  const como = el('p', 'lb-como'); como.innerHTML = `É só <b>comentar sua cidade</b> no post do ${MARCA.ig}. Chega um <b>link no seu direct</b>: abrindo ele, você escolhe a lanterna, escreve o desejo e solta.`;
   box.append(topoL, meio, acoes, como);
   lobby.append(fundo, box);
   const pinta = () => {
@@ -187,7 +187,7 @@ function comoSoltar() {
   cx.append(el('p', 'f-tag', 'como soltar a sua'), el('h2', 'f-tit', 'Comente sua cidade no post'));
   const ex = el('div', 'exemplo'); ex.innerHTML = '<small>comente assim</small><div class="ig-com"><i></i><p><b>seu_perfil</b>Recife 🏮</p></div><small class="ex-alt">quer já mandar o desejo? também vale: “Recife - casa própria”</small>'; cx.append(ex);
   const pas = el('ol', 'passos');
-  for (const t of [`Abra o post do ${MARCA.ig} e comente o nome da sua cidade`, 'Em instantes chega um link só seu no direct', 'Lá você escreve seu desejo, escolhe a lanterna e solta']) pas.append(el('li', '', t));
+  for (const t of [`Abra o post do ${MARCA.ig} e comente o nome da sua cidade`, 'Em instantes chega no seu direct um link só seu (é só abrir, não precisa responder)', 'No link você escolhe a lanterna (grátis ou paga), escreve o desejo e solta']) pas.append(el('li', '', t));
   cx.append(pas);
   const a = el('a', 'btn ouro grande') as HTMLAnchorElement; a.href = postUrl(); a.target = '_blank'; a.rel = 'noopener'; a.className = 'btn ouro grande'; a.innerHTML = `${ICO.ig}<span>Comentar no Instagram</span>`; cx.append(a);
   cx.append(bt('btn linha grande', `${ICO.copiar}<span>Copiar o exemplo</span>`, async () => { try { await navigator.clipboard.writeText('Recife 🏮'); aviso('copiado! troque pela sua cidade'); } catch { aviso('Recife - casa própria'); } }));
@@ -206,9 +206,9 @@ async function escolher(cod: string) {
   const pix = r.pix.ativo;
   const { cx, fechar: f } = folha('escolher');
   const semDesejo = r.oculto || !l.desejo;
-  cx.append(el('p', 'f-tag', `@${l.handle} · céu de ${soNome(l.cid)}`), el('h2', 'f-tit', semDesejo ? 'Escreva seu desejo pra 2027' : 'Seu desejo está pronto pra subir'));
-  const nota = el('div', 'nota-ed'); const ta = el('textarea'); ta.maxLength = 90; ta.rows = 2; ta.value = r.oculto ? '' : l.desejo; ta.placeholder = 'escreva seu desejo pra 2027'; nota.append(el('small', '', semDesejo ? 'seu desejo · só aparece quando você soltar' : 'seu desejo (dá pra ajustar)'), ta); cx.append(nota);
-  if (semDesejo) { const sg = el('div', 'sugs'); for (const t of ['casa própria 🏠', 'saúde pra minha família', 'passar no concurso', 'emprego novo', 'viajar mais ✈️', 'que 2027 seja leve']) sg.append(bt('sug', esc(t), () => { ta.value = t; })); cx.append(sg); setTimeout(() => ta.focus(), 400); }
+  cx.append(el('p', 'f-tag', `@${l.handle} · céu de ${soNome(l.cid)}`), el('h2', 'f-tit', 'Sua lanterna pra 2027'));
+  const nota = el('div', 'nota-ed'); const ta = el('textarea'); ta.maxLength = 90; ta.rows = 2; ta.value = r.oculto ? '' : l.desejo; ta.placeholder = 'escreva seu desejo pra 2027'; nota.append(el('small', '', semDesejo ? 'só aparece no céu quando você soltar' : 'veio do seu comentário · dá pra ajustar'), ta);
+  const sg = el('div', 'sugs'); sg.hidden = !semDesejo; if (semDesejo) { for (const t of ['casa própria 🏠', 'saúde pra minha família', 'passar no concurso', 'emprego novo', 'viajar mais ✈️', 'que 2027 seja leve']) sg.append(bt('sug', esc(t), () => { ta.value = t; })); }
   let tipo = 'gratis' as 'gratis' | 'dourada' | 'casal' | 'familia';
   const ops = el('div', 'opcoes');
   const OP: [typeof tipo, string, string, string][] = [['gratis', 'Lanterna', 'grátis', 'sobe no céu da sua cidade'], ['dourada', 'Dourada', `R$ ${preco('dourada')}`, 'maior, brilha mais e fica em destaque'], ['casal', 'De casal', `R$ ${preco('casal')}`, 'duas lanternas que sobem juntas']];
@@ -244,7 +244,7 @@ async function escolher(cod: string) {
       f(); pagar({ tipo, handle: l.handle, par: p, desejo: d, codigo: cod }, { ...l, desejo: d, tipo: tipo === 'casal' ? 3 : 1, par: p || undefined });
     }
   };
-  cx.append(el('p', 'f-rot', 'escolha a sua lanterna'), ops, fam, par, famBox, ok, el('p', 'f-nota', pix ? 'As pagas só mudam o visual da lanterna. Pix pelo Mercado Pago, cai na hora.' : 'Se você não escolher, ela sobe grátis sozinha em 24h.'));
+  cx.append(el('p', 'f-rot', '1 · escolha a sua lanterna'), ops, fam, par, famBox, el('p', 'f-rot', '2 · escreva seu desejo'), nota, sg, ok, el('p', 'f-nota', pix ? 'As pagas só mudam o visual da lanterna. Pix pelo Mercado Pago, cai na hora.' : 'Se você não escolher, ela sobe grátis sozinha em 24h.'));
   pinta();
 }
 
