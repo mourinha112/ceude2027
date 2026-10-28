@@ -6,7 +6,15 @@ import type React from 'react';
 import { AbsoluteFill, Easing, interpolate, Sequence, staticFile, useCurrentFrame, useVideoConfig } from 'remotion';
 import { Audio } from '@remotion/media';
 import { DURACAO, TEMPOS as T } from '../tempos.mjs';
+import { FALAS } from '../falas.mjs';
 import { Celular, Clarao, Clip, Comentario, LanternaVoa, Legenda, Mao, NaMao, Notificacao, Pelicula, Rabisco, Sombra, Soco, Treme, circuloMao, COR, SANS } from './pecas';
+
+// a música abaixa enquanto a narração fala (rampa de 0,15 s)
+const falando = (t: number) => FALAS.reduce((v, { de, ate, em }) => {
+  const fim = em + (ate - de) + 0.1;
+  const k = t < em ? (em - t) / 0.15 : t > fim ? (t - fim) / 0.3 : 0;
+  return Math.max(v, 1 - Math.min(1, k));
+}, 0);
 
 const ZoomSobe = ({ children, q }: { children: React.ReactNode; q: (s: number) => number }) => {
   const f = useCurrentFrame();
@@ -109,7 +117,12 @@ export const Lancamento = () => {
       </Sequence>
 
       <Pelicula />
-      <Audio src={staticFile('trilha.wav')} />
+      <Audio src={staticFile('trilha.wav')} volume={(f) => 1 - 0.55 * falando(f / fps)} />
+      {FALAS.map(({ de, ate, em }, i) => (
+        <Sequence key={i} name={`Voz ${i}`} from={Math.round(em * fps)} durationInFrames={Math.ceil((ate - de + 0.2) * fps)}>
+          <Audio src={staticFile(`voz/${String(i).padStart(2, '0')}.wav`)} />
+        </Sequence>
+      ))}
     </AbsoluteFill>
   );
 };

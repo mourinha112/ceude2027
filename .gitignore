@@ -11,3 +11,4 @@ video/node_modules/
 video/public/clipes/
 video/public/trilha.wav
 video/*.log
+video/public/voz/*.wav
