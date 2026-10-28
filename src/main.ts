@@ -148,12 +148,12 @@ function mostrar(i: number, mirar = true) {
       bt('btn linha', `${ICO.presente}<span>Presentear</span>`, () => abrirPresente(l.handle)),
     );
     card.append(ac);
-    if (dadosCeu?.pix.ativo) {   // as duas ofertas aparecem em todo bilhete (o seu ou de qualquer pessoa): lembrete constante
+    {   // as duas ofertas aparecem em todo bilhete (o seu ou de qualquer pessoa), mesmo antes do Pix abrir: aí avisam "em breve"
       card.append(
         bt('upsell', `<i class="pv-mini"></i><div><b>Turbinar seu balão</b><small>faixa com frase, skin, cor, rastro de brilho</small></div><em>a partir de R$ ${reais(PRECO_VISUAL.cor)}</em>`, () => (meu ? personalizar(i) : void turbinarOMeu())),
         bt('upsell leve', `<i class="mini-l"></i><div><b>Soltar pra família toda</b><small>4 douradas com o seu nome · sai R$ 3,73 cada</small></div><em>R$ ${preco('familia')}</em>`, () => abrirPresente('', true)),
       );
-      if (meu) {   // na sua, mais duas opções em uma linha discreta
+      if (meu && dadosCeu?.pix.ativo) {   // na sua, mais duas opções em uma linha discreta
         const mais = el('p', 'cd-mais');
         if (l.tipo === 0) mais.append(bt('lk', `deixar dourada · R$ ${preco('dourada')}`, () => pagar({ tipo: 'dourada', handle: l.handle, desejo: '' })));
         if (!noTopo(l)) mais.append(bt('lk', `topo do céu de ${esc(soNome(l.cid))} 24h · R$ ${preco('topo')}`, () => pagar({ tipo: 'topo', handle: l.handle, lanterna: String(l.id), desejo: '' }, l)));
