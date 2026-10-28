@@ -41,6 +41,9 @@ Perfil do Céu: conta **profissional** (criador ou empresa). No app da Meta (pod
 - O servidor só libera a lanterna depois de confirmar o pagamento na própria API do Mercado Pago.
 
 Preços: dourada R$ 4,90 · casal R$ 7,90 · presente R$ 4,90 · família (4 douradas) R$ 14,90 · topo do céu da cidade por 24h R$ 9,90 (em `server/config.ts`).
+Personalização (`server/catalogo.ts`): faixa com frase R$ 6,90 · skin R$ 4,90 · cor lisa R$ 2,90 · rastro de brilho R$ 3,90 · 3 itens juntos: R$ 1,80 de desconto. Vai junto no Pix do link ou depois, pela lanterna que já está no céu. Faixa passa pelo filtro e o admin pode tirar.
+
+Teste dos pagamentos (Mercado Pago falso): `npm run teste`.
 
 ## Página para lojas
 `https://SITE/empresas` · personalize o link antes de mandar no direct: `/empresas?loja=Padaria%20X&cidade=Recife&ig=padariax`. Os pedidos caem no admin.

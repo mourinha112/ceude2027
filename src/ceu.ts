@@ -1,23 +1,32 @@
 /* Céu noturno 3D: estrelas e via láctea, horizonte com cidade (Cristo e Pão de Açúcar), mar escuro e milhares de
    lanternas (geometria + brilho) animadas no shader: balançam, sobem quando nascem, piscam como chama.
-   Tipos: 0 normal · 1 dourada · 2 empresa · 3 casal. Virada: as lanternas viram fogos coloridos + estouros. */
+   Tipos: 0 normal · 1 dourada · 2 empresa · 3 casal. Virada: as lanternas viram fogos coloridos + estouros.
+   Personalização (paga): cor lisa ou skin (estampa no papel), rastro de faíscas e faixa com frase pendurada. */
 import * as T from 'three';
 import { rnd, type Tipo } from './dados';
+import { CORES, SKINS } from '../server/catalogo';
 
 const GLSL_POS = `
 uniform float uT; uniform float uCid; uniform float uVir; uniform float uSel;
 attribute vec3 aBase; attribute float aFase; attribute float aNasc; attribute float aTipo; attribute float aCid; attribute float aForca; attribute float aId;
-vec3 posL() {
+attribute float aPat; attribute vec3 aC1; attribute vec3 aC2;
+vec3 posLT(float t) {
   vec3 p = aBase;
-  p.x += sin(uT * 0.13 + aFase * 6.0) * 2.2; p.z += cos(uT * 0.11 + aFase * 4.0) * 2.2;
-  p.y += sin(uT * 0.32 + aFase * 9.0) * 1.3 + max(aForca, 0.0) * 6.0;
-  float k = clamp((uT - aNasc) / 9.0, 0.0, 1.0); k = 1.0 - pow(1.0 - k, 3.0);
+  p.x += sin(t * 0.13 + aFase * 6.0) * 2.2; p.z += cos(t * 0.11 + aFase * 4.0) * 2.2;
+  p.y += sin(t * 0.32 + aFase * 9.0) * 1.3 + max(aForca, 0.0) * 6.0;
+  float k = clamp((t - aNasc) / 9.0, 0.0, 1.0); k = 1.0 - pow(1.0 - k, 3.0);
   p.y = mix(-1.0, p.y, k);
-  p.x += (1.0 - k) * sin(uT * 3.0 + aFase * 20.0) * 0.6;
+  p.x += (1.0 - k) * sin(t * 3.0 + aFase * 20.0) * 0.6;
   return p;
 }
+vec3 posL() { return posLT(uT); }
+vec3 arco(float h) { return 0.5 + 0.5 * cos(6.283 * (h + vec3(0.0, 0.33, 0.67))); }
 vec3 corL() {
   vec3 c = aTipo < 0.5 ? vec3(1.0, 0.56, 0.2) : aTipo < 1.5 ? vec3(1.0, 0.86, 0.45) : aTipo < 2.5 ? vec3(0.25, 0.95, 0.9) : vec3(1.0, 0.45, 0.68);
+  if (aPat > -0.5) {   // personalizada: o brilho puxa a cor dela (skin: a média das duas, sempre acesa)
+    c = aPat < 0.5 ? aC1 : aPat > 4.5 ? arco(uT * 0.08 + aFase) : mix(aC1, aC2, 0.5);
+    c = c / max(max(c.r, c.g), max(c.b, 0.05)); c = mix(c, vec3(1.0, 0.8, 0.5), 0.18);
+  }
   float v = uT - uVir;
   if (v > 0.0 && v < 6.0) { float h = fract(aFase * 7.0 + v * 0.6); c = mix(c, 0.5 + 0.5 * cos(6.283 * (h + vec3(0.0, 0.33, 0.67))), smoothstep(0.0, 0.4, v) * (1.0 - smoothstep(4.5, 6.0, v))); }
   return c;
@@ -27,7 +36,7 @@ float escalaL() { return (aTipo < 0.5 ? 1.0 : aTipo < 1.5 ? 1.7 : aTipo < 2.5 ? 
 float ambL() { return aCid < -0.5 ? 0.45 : 1.0; }
 `;
 
-export type Lanterna = { id: number; handle: string; desejo: string; cid: number; tipo: Tipo; forca: number; par?: string; de?: string; empresa?: { nome: string; ig: string; oferta: string; cor: string } };
+export type Lanterna = { id: number; handle: string; desejo: string; cid: number; tipo: Tipo; forca: number; par?: string; de?: string; empresa?: { nome: string; ig: string; oferta: string; cor: string }; vis?: { skin?: string; cor?: string; rastro?: boolean; faixa?: string } };
 
 export function criarCeu(canvas: HTMLCanvasElement) {
   const cel = innerWidth < 760;
@@ -95,6 +104,7 @@ export function criarCeu(canvas: HTMLCanvasElement) {
   /* lanternas */
   const AMB = cel ? 700 : 1200, N = (cel ? 5200 : 8200) + AMB;
   const aBase = new Float32Array(N * 3), aFase = new Float32Array(N), aNasc = new Float32Array(N).fill(1e9), aTipo = new Float32Array(N), aCid = new Float32Array(N).fill(-1), aForca = new Float32Array(N), aId = new Float32Array(N);
+  const aPat = new Float32Array(N).fill(-1), aC1 = new Float32Array(N * 3), aC2 = new Float32Array(N * 3);
   const L: (Lanterna | null)[] = new Array(N).fill(null);
   const porId = new Map<number, number>();
   let usados = AMB;
@@ -105,17 +115,29 @@ export function criarCeu(canvas: HTMLCanvasElement) {
   for (let i = 0; i < N; i++) { aFase[i] = rnd(); aId[i] = i; }
   // luzes de ambiente: bem longe e fracas (só cenário)
   for (let i = 0; i < AMB; i++) { sortearBase(i, false, true); aTipo[i] = 0; aForca[i] = -0.55; aNasc[i] = -50; }
-  const attrs = { aBase: [aBase, 3], aFase: [aFase, 1], aNasc: [aNasc, 1], aTipo: [aTipo, 1], aCid: [aCid, 1], aForca: [aForca, 1], aId: [aId, 1] } as const;
+  const attrs = { aBase: [aBase, 3], aFase: [aFase, 1], aNasc: [aNasc, 1], aTipo: [aTipo, 1], aCid: [aCid, 1], aForca: [aForca, 1], aId: [aId, 1], aPat: [aPat, 1], aC1: [aC1, 3], aC2: [aC2, 3] } as const;
   // corpo de papel (só aparece de perto) — geometria instanciada à mão
   const base = new T.CylinderGeometry(0.55, 0.4, 1.15, 8, 1, false);
   const gL = new T.InstancedBufferGeometry(); gL.index = base.index; gL.setAttribute('position', base.attributes.position); gL.setAttribute('uv', base.attributes.uv); gL.instanceCount = N;
   for (const [k, [arr, n]] of Object.entries(attrs)) gL.setAttribute(k, new T.InstancedBufferAttribute(arr, n));
   const corpo = new T.Mesh(gL, new T.ShaderMaterial({
     uniforms: uni, transparent: true, depthWrite: false,
-    vertexShader: GLSL_POS + `varying float vY; varying vec3 vC; varying float vA;
-      void main(){ vY = uv.y; vC = corL(); vA = alfaL(); vec3 p = posL() + position * escalaL(); gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0); }`,
-    fragmentShader: `uniform float uT; varying float vY; varying vec3 vC; varying float vA;
-      void main(){ vec3 c = mix(vC * 1.6, vC * 0.55, vY); gl_FragColor = vec4(c, 0.92 * vA); }`,
+    vertexShader: GLSL_POS + `varying float vY; varying vec3 vC; varying float vA; varying vec2 vUv; varying float vPat; varying vec3 vC1; varying vec3 vC2; varying float vF;
+      void main(){ vY = uv.y; vUv = uv; vC = corL(); vA = alfaL(); vPat = aPat; vC1 = aC1; vC2 = aC2; vF = aFase; vec3 p = posL() + position * escalaL(); gl_Position = projectionMatrix * viewMatrix * vec4(p, 1.0); }`,
+    fragmentShader: `uniform float uT; varying float vY; varying vec3 vC; varying float vA; varying vec2 vUv; varying float vPat; varying vec3 vC1; varying vec3 vC2; varying float vF;
+      float hs(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+      vec3 estampa(){
+        if (vPat < 0.5) return vC1;                                                    // cor lisa
+        vec2 p = vec2((fract(vUv.x * 2.0) - 0.5) * 2.6, (vUv.y - 0.48) * 2.4);         // um desenho de cada lado
+        if (vPat < 1.5) return mix(vC1, vC2, step(0.5, fract(vUv.x * 8.0)));           // listras (cores de time)
+        if (vPat < 2.5) { float a = p.x * p.x + p.y * p.y - 0.6; return a * a * a - p.x * p.x * p.y * p.y * p.y < 0.0 ? vC1 : vC2; }   // coração
+        if (vPat < 3.5) { vec2 g = vUv * vec2(12.0, 5.0); vec2 f = fract(g) - 0.5; return (length(f) < 0.2 && hs(floor(g)) > 0.35) ? vC2 : vC1; }   // estrelada
+        if (vPat < 4.5) { if (length(p) < 0.36) return vec3(0.1, 0.22, 0.62); return abs(p.x) * 0.62 + abs(p.y) < 0.72 ? vC2 : vC1; }   // Brasil
+        return 0.5 + 0.5 * cos(6.283 * (vUv.y * 0.9 + uT * 0.06 + vF + vec3(0.0, 0.33, 0.67)));   // arco-íris
+      }
+      void main(){
+        vec3 c = vPat < -0.5 ? mix(vC * 1.6, vC * 0.55, vY) : estampa() * mix(1.45, 0.62, vY) + vec3(1.0, 0.7, 0.35) * 0.18 * (1.0 - vY);
+        gl_FragColor = vec4(c, 0.94 * vA); }`,
   }));
   corpo.frustumCulled = false; scene.add(corpo);
   // brilho (o que se vê de longe)
@@ -133,6 +155,100 @@ export function criarCeu(canvas: HTMLCanvasElement) {
       void main(){ float d = length(gl_PointCoord - 0.5) * 2.0; float a = exp(-d * d * 4.5) * 0.9 + exp(-d * d * 40.0) * 0.6; gl_FragColor = vec4(vC * vF, a * vA * vF); }`,
   }));
   halo.frustumCulled = false; scene.add(halo);
+
+  /* rastro de faíscas (pago): pontos que seguem a lanterna pelo caminho que ela fez há pouco */
+  const KR = 16, comRastro = new Set<number>(); let rastroSujo = false;
+  const gR = new T.BufferGeometry();
+  const rastro = new T.Points(gR, new T.ShaderMaterial({
+    uniforms: { ...uni, uPx: { value: pxRatio } }, transparent: true, depthWrite: false, blending: T.AdditiveBlending,
+    vertexShader: GLSL_POS + `uniform float uPx; attribute float aK; varying vec3 vC; varying float vA;
+      void main(){
+        float t = uT - aK * 1.5; vec3 p = posLT(t);
+        p.y -= 0.7 * escalaL() + aK * 1.4;
+        p.x += sin(aK * 31.0 + uT * 2.7 + aFase * 50.0) * 0.35 * aK; p.z += cos(aK * 17.0 + uT * 2.1 + aFase * 30.0) * 0.35 * aK;
+        vec4 mv = viewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;
+        float tw = 0.55 + 0.45 * sin(uT * 17.0 + aK * 40.0 + aFase * 9.0);
+        vC = mix(vec3(1.0, 0.95, 0.8), corL(), aK * 0.8); vA = (1.0 - aK) * tw * alfaL();
+        gl_PointSize = clamp(48.0 * (1.0 - aK * 0.6) / -mv.z, 1.0, 26.0) * uPx; }`,
+    fragmentShader: `varying vec3 vC; varying float vA;
+      void main(){ float d = length(gl_PointCoord - 0.5) * 2.0; gl_FragColor = vec4(vC, exp(-d * d * 5.0) * vA); }`,
+  }));
+  rastro.frustumCulled = false; scene.add(rastro);
+  function montarRastro() {
+    rastroSujo = false; const ids = [...comRastro], n = ids.length * KR;
+    const at: Record<string, Float32Array> = { aK: new Float32Array(n) }; const pos3 = new Float32Array(n * 3);
+    for (const [k, [arr, w]] of Object.entries(attrs)) at[k] = new Float32Array(n * w);
+    ids.forEach((i, j) => { for (let k = 0; k < KR; k++) { const v = j * KR + k; at.aK[v] = k / KR; for (const [nome, [arr, w]] of Object.entries(attrs)) for (let c = 0; c < w; c++) at[nome][v * w + c] = arr[i * w + c]; } });
+    gR.setAttribute('position', new T.BufferAttribute(pos3, 3));
+    for (const [k, a] of Object.entries(at)) gR.setAttribute(k, new T.BufferAttribute(a, k === 'aK' ? 1 : (attrs as Record<string, readonly [Float32Array, number]>)[k][1]));
+    gR.setDrawRange(0, n);
+  }
+
+  /* faixas com frase (pagas): só as mais perto da câmera ganham texto (poucas por vez, pesa nada) */
+  const NFX = cel ? 18 : 28, faixas = new Map<number, string>(), texturas = new Map<number, { tex: T.CanvasTexture; asp: number; txt: string }>();
+  const FONTE = "900 112px 'Big Shoulders Display', 'Arial Narrow', sans-serif";
+  function texturaFaixa(i: number, txt: string) {
+    const ja = texturas.get(i); if (ja && ja.txt === txt) return ja;
+    if (document.fonts && !document.fonts.check(FONTE)) { void document.fonts.load(FONTE); }
+    const cv = document.createElement('canvas'), x = cv.getContext('2d')!; x.font = FONTE;
+    const t = txt.toUpperCase(), w = Math.min(2040, Math.ceil(x.measureText(t).width) + 150), h = 170; cv.width = w; cv.height = h;
+    x.font = FONTE; x.fillStyle = '#f3ead8';
+    x.beginPath(); x.moveTo(0, 8); x.lineTo(w, 8); x.lineTo(w - 34, h / 2 + 4); x.lineTo(w, h); x.lineTo(0, h); x.lineTo(34, h / 2 + 4); x.closePath(); x.fill();   // ponta de bandeirola
+    x.fillStyle = 'rgba(30,26,40,.12)'; x.fillRect(0, 8, w, 7);
+    x.fillStyle = '#c4361d'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(t, w / 2, h / 2 + 10, w - 120);
+    const tex = new T.CanvasTexture(cv); tex.colorSpace = T.SRGBColorSpace; tex.anisotropy = 4;
+    if (ja) ja.tex.dispose();
+    const o = { tex, asp: w / h, txt }; texturas.set(i, o);
+    if (texturas.size > 90) { const [k0, v0] = texturas.entries().next().value!; v0.tex.dispose(); texturas.delete(k0); }
+    return o;
+  }
+  const geoFx = new T.PlaneGeometry(1, 1, 12, 1);
+  const slots = Array.from({ length: NFX }, () => {
+    const m = new T.Mesh(geoFx, new T.ShaderMaterial({
+      uniforms: { uT: uni.uT, map: { value: null as T.Texture | null }, uA: { value: 1 } }, transparent: true, depthWrite: false, side: T.DoubleSide,
+      vertexShader: `uniform float uT; varying vec2 vUv; void main(){ vUv = uv; vec3 p = position; p.z += sin(p.x * 7.0 - uT * 3.2) * 0.045; p.y += sin(p.x * 4.0 - uT * 2.0) * 0.03; gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0); }`,
+      fragmentShader: `uniform sampler2D map; uniform float uA; uniform float uT; varying vec2 vUv; void main(){ vec4 c = texture2D(map, vUv); float luz = 0.82 + 0.18 * (1.0 - vUv.y) + 0.04 * sin(uT * 11.0); gl_FragColor = vec4(c.rgb * luz, c.a * uA); }`,
+    }));
+    m.visible = false; m.frustumCulled = false; scene.add(m); return { m, i: -1 };
+  });
+  const fios = new T.LineSegments(new T.BufferGeometry().setAttribute('position', new T.BufferAttribute(new Float32Array(NFX * 12), 3)), new T.LineBasicMaterial({ color: '#d8c9a8', transparent: true, opacity: 0.7 }));
+  fios.frustumCulled = false; scene.add(fios);
+  let proxEscolha = 0;
+  const escalaCPU = (i: number) => ([1, 1.7, 2, 1.3][aTipo[i]] ?? 1) * (1 + aForca[i] * 0.35) * (uni.uSel.value === i ? 1.6 : 1);
+  const PF = new T.Vector3(), CA = new T.Vector3(), CB = new T.Vector3();
+  function passoFaixas(t: number) {
+    if (t > proxEscolha) {   // escolhe quem ganha texto: a selecionada primeiro, depois as mais perto (na cidade filtrada)
+      proxEscolha = t + 0.3;
+      const cand: [number, number][] = [];
+      for (const i of faixas.keys()) { if (uni.uCid.value >= 0 && aCid[i] !== uni.uCid.value) continue; pos(i, PF); const d = PF.distanceToSquared(camera.position); if (d < 170 * 170 || i === uni.uSel.value) cand.push([i === uni.uSel.value ? -1 : d, i]); }
+      cand.sort((a, b) => a[0] - b[0]);
+      const escolhidas = new Set(cand.slice(0, NFX).map((c) => c[1]));
+      for (const s of slots) if (s.i >= 0 && !escolhidas.has(s.i)) { s.i = -1; s.m.visible = false; }
+      for (const i of escolhidas) if (!slots.some((s) => s.i === i)) { const s = slots.find((x) => x.i < 0); if (s) { s.i = i; s.m.visible = true; } }
+    }
+    const fp2 = fios.geometry.getAttribute('position') as T.BufferAttribute; let nl = 0;
+    for (const s of slots) {
+      if (s.i < 0) continue;
+      const i = s.i, tx = texturaFaixa(i, faixas.get(i) || ''), esc = escalaCPU(i), h = 0.62 * esc, w = h * tx.asp;
+      (s.m.material as T.ShaderMaterial).uniforms.map.value = tx.tex;
+      pos(i, PF); s.m.scale.set(w, h, 1);
+      s.m.position.set(PF.x, PF.y - 0.62 * esc - 0.9 * esc - h / 2, PF.z);
+      s.m.rotation.set(0, Math.atan2(camera.position.x - PF.x, camera.position.z - PF.z), 0);
+      s.m.updateMatrixWorld();
+      CA.set(-0.47, 0.5, 0).applyMatrix4(s.m.matrixWorld); CB.set(0.47, 0.5, 0).applyMatrix4(s.m.matrixWorld);
+      const by = PF.y - 0.58 * esc;
+      fp2.array.set([CA.x, CA.y, CA.z, PF.x, by, PF.z, CB.x, CB.y, CB.z, PF.x, by, PF.z], nl * 12); nl++;
+    }
+    fios.geometry.setDrawRange(0, nl * 4); fp2.needsUpdate = true;
+  }
+  const corRGB = (hex: string, out: Float32Array, i: number) => { const c = new T.Color(hex); out[i * 3] = c.r; out[i * 3 + 1] = c.g; out[i * 3 + 2] = c.b; };
+  /** aplica a personalização da lanterna i nos atributos (cor/skin), no rastro e na faixa */
+  function vestirI(i: number, v: Lanterna['vis']) {
+    const sk = v?.skin ? SKINS.find((x) => x.k === v.skin) : undefined, co = !sk && v?.cor ? CORES.find((x) => x.k === v.cor) : undefined;
+    if (sk) { aPat[i] = sk.pat; corRGB(sk.c1, aC1, i); corRGB(sk.c2, aC2, i); } else if (co) { aPat[i] = 0; corRGB(co.c, aC1, i); corRGB(co.c, aC2, i); } else aPat[i] = -1;
+    const tinha = comRastro.has(i); if (v?.rastro) comRastro.add(i); else comRastro.delete(i); if (tinha !== comRastro.has(i) || v?.rastro) rastroSujo = true;
+    if (v?.faixa) faixas.set(i, v.faixa); else faixas.delete(i);
+  }
   let lote = false;
   const sujo = () => { for (const g of [gL, gP]) for (const k of Object.keys(attrs)) (g.getAttribute(k) as T.BufferAttribute).needsUpdate = true; };
 
@@ -221,6 +337,8 @@ export function criarCeu(canvas: HTMLCanvasElement) {
       gF.attributes.position.needsUpdate = true; gF.attributes.color.needsUpdate = true;
       if (!vivo && t > uni.uVir.value + 17) fogos.visible = false;
     }
+    if (rastroSujo) montarRastro();
+    if (faixas.size || slots.some((x) => x.i >= 0)) passoFaixas(t);
     for (const f of passos) f(t);
     renderer.render(scene, camera);
   });
@@ -232,18 +350,20 @@ export function criarCeu(canvas: HTMLCanvasElement) {
     /** coloca uma lanterna real. nascendo = sobe da água agora; perto = na frente da câmera (a sua). Devolve o índice. */
     colocar(l: Lanterna, nascendo = false, perto = false) {
       const ja = porId.get(l.id);
-      if (ja !== undefined) { L[ja] = l; aTipo[ja] = l.tipo; aForca[ja] = l.forca; aCid[ja] = l.cid; sujo(); return ja; }
+      if (ja !== undefined) { L[ja] = l; aTipo[ja] = l.tipo; aForca[ja] = l.forca; aCid[ja] = l.cid; vestirI(ja, l.vis); sujo(); return ja; }
       if (usados >= N) return -1;
       const i = usados++;
       L[i] = l; porId.set(l.id, i); sortearBase(i, perto);
       if (perto) { const a = olhar.yaw + (rnd() - 0.5) * 0.5, r = 34; aBase[i * 3] = Math.sin(a) * r; aBase[i * 3 + 2] = -Math.cos(a) * r; aBase[i * 3 + 1] = 30 + rnd() * 10; }
-      aTipo[i] = l.tipo; aCid[i] = l.cid; aForca[i] = l.forca; aNasc[i] = nascendo ? uni.uT.value : -50 - rnd() * 10;
+      aTipo[i] = l.tipo; aCid[i] = l.cid; aForca[i] = l.forca; aNasc[i] = nascendo ? uni.uT.value : -50 - rnd() * 10; vestirI(i, l.vis);
       if (!lote) sujo();
       return i;
     },
     lote(f: () => void) { lote = true; try { f(); } finally { lote = false; sujo(); } },
     indice: (id: number) => porId.get(id) ?? -1,
-    forca(i: number, f: number) { aForca[i] = f; if (L[i]) L[i]!.forca = f; sujo(); },
+    forca(i: number, f: number) { aForca[i] = f; if (L[i]) L[i]!.forca = f; sujo(); rastroSujo = comRastro.has(i) || rastroSujo; },
+    /** veste na hora (depois do Pix ou na prévia da personalização) */
+    vestir(i: number, v: Lanterna['vis']) { if (L[i]) L[i]!.vis = v; vestirI(i, v); sujo(); },
     seguir(i: number) { olhar.segue = i; olhar.alvo = null; olhar.auto = false; },
     pararSeguir() { olhar.segue = -1; },
     mirar, selecionar(i: number | null) { uni.uSel.value = i ?? -1; },

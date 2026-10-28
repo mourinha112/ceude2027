@@ -7,7 +7,8 @@
     "dev": "vite --host --port 5310",
     "server": "tsx watch server/index.ts",
     "build": "tsc --noEmit && vite build",
-    "start": "tsx server/index.ts"
+    "start": "tsx server/index.ts",
+    "teste": "node teste/pagamentos.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

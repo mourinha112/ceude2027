@@ -8,6 +8,7 @@ import { criarCeu, type Lanterna } from './ceu';
 import { api, aparelho, type Compacta, type CeuResp } from './api';
 import { cartaoStory } from './story';
 import { CIDADES, DESEJOS, EMPRESAS, MARCA, faltam, fmt, handleFake, rnd, cidadeSorteada, type Tipo } from './dados';
+import { CORES, SKINS, PRECO_VISUAL, FAIXA_MAX, precoVisual, novos, vazio, type Visual } from '../server/catalogo';
 
 const $ = <E extends HTMLElement = HTMLElement>(s: string) => document.querySelector(s) as E;
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls = '', txt?: string | number) { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = String(txt); return e; }
@@ -43,8 +44,9 @@ const cidIdx = (c: string) => { let i = CID_IDX.get(c); if (i === undefined) { i
 const nomeCid = (i: number) => { const [n, uf] = (CID[i] || 'Brasil').split('|'); return uf ? `${n}, ${uf}` : n; };
 const soNome = (i: number) => (CID[i] || 'Brasil').split('|')[0];
 function deCompacta(c: Compacta): Lanterna {
-  const [id, handle, desejo, cidade, tipo, forca, par, de, emp] = c;
-  return { id, handle, desejo, cid: cidIdx(cidade), tipo: tipo as Tipo, forca, par: par || undefined, de: de || undefined, empresa: emp ? { nome: emp[0], ig: emp[1], oferta: emp[2], cor: emp[3] } : undefined };
+  const [id, handle, desejo, cidade, tipo, forca, par, de, emp, vis] = c;
+  return { id, handle, desejo, cid: cidIdx(cidade), tipo: tipo as Tipo, forca, par: par || undefined, de: de || undefined, empresa: emp ? { nome: emp[0], ig: emp[1], oferta: emp[2], cor: emp[3] } : undefined,
+    vis: vis ? { skin: vis[0] || undefined, cor: vis[1] || undefined, rastro: !!vis[2], faixa: vis[3] || undefined } : undefined };
 }
 function postUrl() { return dadosCeu?.post || `https://www.instagram.com/${MARCA.ig.slice(1)}/`; }
 
@@ -134,6 +136,7 @@ function mostrar(i: number, mirar = true) {
     card.append(el('p', 'carimbo', TIPO_NOME[l.tipo] + (meu ? ' · a sua' : '')));
     if (noTopo(l)) card.append(el('p', 'carimbo topo', `no topo do céu de ${soNome(l.cid)}`));
     const n = el('blockquote', 'nota'); n.textContent = l.desejo; card.append(n);
+    if (l.vis?.faixa) card.append(el('p', 'cd-faixa', l.vis.faixa.toUpperCase()));
     const ass = el('p', 'cd-ass'); ass.textContent = '— @' + l.handle + (l.par ? ` & @${l.par}` : '');
     ass.append(el('span', '', `céu de ${nomeCid(l.cid)}${l.de ? ` · presente de @${l.de}` : ''}`)); card.append(ass);
     const ac = el('div', 'acoes');
@@ -145,10 +148,11 @@ function mostrar(i: number, mirar = true) {
     card.append(ac);
     if (meu && dadosCeu?.pix.ativo) {   // no máximo duas ofertas, a mais forte primeiro
       const of: HTMLElement[] = [];
-      if (l.tipo === 0) of.push(bt('upsell', `<i class="mini-l d"></i><div><b>Deixar a sua dourada</b><small>maior, mais brilho, em destaque no céu</small></div><em>R$ ${preco('dourada')}</em>`, () => pagar({ tipo: 'dourada', handle: l.handle, desejo: '' })));
+      of.push(bt('upsell', `<i class="pv-mini"></i><div><b>Personalizar a sua</b><small>faixa com frase, skin, cor, rastro de brilho</small></div><em>a partir de R$ ${reais(PRECO_VISUAL.cor)}</em>`, () => personalizar(i)));
+      if (l.tipo === 0) of.push(bt('upsell leve', `<i class="mini-l d"></i><div><b>Deixar a sua dourada</b><small>maior, mais brilho, em destaque no céu</small></div><em>R$ ${preco('dourada')}</em>`, () => pagar({ tipo: 'dourada', handle: l.handle, desejo: '' })));
       if (!noTopo(l)) of.push(bt('upsell' + (of.length ? ' leve' : ''), `<i class="seta"></i><div><b>Colocar no topo do céu de ${esc(soNome(l.cid))}</b><small>acima de todas da cidade por 24 horas</small></div><em>R$ ${preco('topo')}</em>`, () => pagar({ tipo: 'topo', handle: l.handle, lanterna: String(l.id), desejo: '' }, l)));
       if (of.length < 2) of.push(bt('upsell leve', `<i class="mini-l"></i><div><b>Soltar pra família toda</b><small>4 douradas com o seu nome · sai R$ 3,73 cada</small></div><em>R$ ${preco('familia')}</em>`, () => abrirPresente('', true)));
-      card.append(...of);
+      card.append(...of.slice(0, 2));
     }
   }
   card.hidden = false; etq.hidden = false; etq.textContent = l.tipo === 2 && l.empresa ? l.empresa.nome : '@' + l.handle;
@@ -166,20 +170,89 @@ async function fortalecer(i: number) {
 }
 async function story(l: Lanterna) {
   aviso('preparando seu story…', 1500);
-  const r = await cartaoStory({ handle: l.handle, desejo: l.desejo, cidade: soNome(l.cid), tipo: l.tipo, site: SITE });
+  const sk = SKINS.find((x) => x.k === l.vis?.skin), co = CORES.find((x) => x.k === l.vis?.cor);
+  const r = await cartaoStory({ handle: l.handle, desejo: l.desejo, cidade: soNome(l.cid), tipo: l.tipo, site: SITE, faixa: l.vis?.faixa, cores: sk ? [sk.c2, sk.c1] : co ? [co.c, co.c] : undefined });
   if (r === 'baixado') aviso('imagem salva: poste no story e marque o perfil!', 3600);
 }
 
 /* ============ folhas (modais) ============ */
-function folha(cls = '') {
+function folha(cls = '', aoFechar?: () => void) {
   document.querySelector('.modal')?.remove(); fechar();
   const fundo = el('div', 'modal'), cx = el('div', 'folha ' + cls);
-  const fecharF = () => { fundo.classList.add('sai'); setTimeout(() => fundo.remove(), 250); };
+  const fecharF = () => { aoFechar?.(); fundo.classList.add('sai'); setTimeout(() => fundo.remove(), 250); };
   fundo.onclick = (e) => { if (e.target === fundo) fecharF(); };
   cx.append(bt('fx', ICO.x, fecharF)); fundo.append(cx); ui.append(fundo);
   return { cx, fechar: fecharF };
 }
+const reais = (n: number) => n.toFixed(2).replace('.', ',');
 const preco = (t: string) => (dadosCeu?.pix.precos[t] ?? ({ dourada: 4.9, casal: 7.9, presente: 4.9, familia: 14.9, topo: 9.9 } as Record<string, number>)[t]).toFixed(2).replace('.', ',');
+
+/* ============ personalizar: faixa, skin, cor, rastro ============ */
+const FUNDO_SKIN: Record<number, (a: string, b: string) => string> = {
+  1: (a, b) => `repeating-linear-gradient(90deg, ${a} 0 5px, ${b} 5px 10px)`,
+  2: (a, b) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='${a}' d='M12 21s-8-5.2-8-11.2A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8 2.8C20 15.8 12 21 12 21z'/></svg>`)}") 50% 55% / 72% no-repeat, ${b}`,
+  3: (a, b) => `radial-gradient(${b} 0 1.6px, transparent 2px) 0 0 / 7px 7px, ${a}`,
+  4: (a, b) => `radial-gradient(circle, #1a3a9e 0 22%, transparent 23%), conic-gradient(from 45deg at 50% 50%, ${b} 0 25%, transparent 0 50%, ${b} 0 75%, transparent 0) 50% 50% / 70% 70% no-repeat, ${a}`,
+  5: () => 'linear-gradient(180deg, #ff6b6b, #ffd36b, #6bff9a, #6bc6ff, #b36bff)',
+};
+function fundoVis(v: Visual) {
+  const sk = SKINS.find((x) => x.k === v.skin); if (sk) return FUNDO_SKIN[sk.pat](sk.c1, sk.c2);
+  const co = CORES.find((x) => x.k === v.cor); return co ? co.c : '';
+}
+/** painel de escolha. ja = o que a lanterna já tem (não cobra de novo). aoMudar recebe o que foi escolhido e o preço disso */
+function painelVisual(ja: Visual, aoMudar: (v: Visual, valor: number) => void) {
+  const v: Visual = { ...ja };
+  const box = el('div', 'pv');
+  const prev = el('div', 'pv-prev'), pl = el('i', 'pv-l'), pfx = el('span', 'pv-fx'), prt = el('i', 'pv-rt');
+  prev.append(prt, pl, pfx);
+  const item = (nome: string, valor: number, tem: boolean) => { const d = el('div', 'pv-it'), c = el('div', 'pv-cab'); c.innerHTML = `<b>${nome}</b><em>${tem ? 'já é sua' : 'R$ ' + reais(valor)}</em>`; d.append(c); return d; };
+  // faixa
+  const iF = item('Faixa com frase', PRECO_VISUAL.faixa, !!ja.faixa);
+  const fx = el('input', 'in'); fx.maxLength = FAIXA_MAX; fx.placeholder = 'ex.: CASA COMIGO, JU?'; fx.value = ja.faixa || '';
+  fx.oninput = () => { v.faixa = fx.value.trim() || undefined; pinta(); };
+  const sgF = el('div', 'sugs'); for (const t of ['FELIZ 2027', 'CASA COMIGO?', 'TE AMO MÃE', '2027 É NOSSO', 'FAMÍLIA UNIDA']) sgF.append(bt('sug', t, () => { fx.value = t; v.faixa = t; pinta(); }));
+  iF.append(fx, sgF);
+  // skin
+  const iS = item('Skin', PRECO_VISUAL.skin, false), gS = el('div', 'pv-sw');
+  for (const k of SKINS) { const b = bt('sw sk', `<i style="background:${FUNDO_SKIN[k.pat](k.c1, k.c2)}"></i><small>${k.n}</small>`, () => { v.skin = v.skin === k.k ? undefined : k.k; if (v.skin) v.cor = undefined; pinta(); }); b.dataset.k = k.k; gS.append(b); }
+  iS.append(gS);
+  // cor
+  const iC = item('Cor lisa', PRECO_VISUAL.cor, false), gC = el('div', 'pv-sw cores');
+  for (const k of CORES) { const b = bt('sw co', `<i style="background:${k.c}"></i><small>${k.n}</small>`, () => { v.cor = v.cor === k.k ? undefined : k.k; if (v.cor) v.skin = undefined; pinta(); }); b.dataset.k = k.k; gC.append(b); }
+  iC.append(gC);
+  // rastro
+  const rt = bt('pv-tg', '', () => { if (ja.rastro) return; v.rastro = !v.rastro; pinta(); });
+  const tot = el('p', 'pv-tot');
+  box.append(prev, iF, iS, iC, rt, tot);
+  const pinta = () => {
+    gS.querySelectorAll<HTMLElement>('.sw').forEach((b) => { b.classList.toggle('on', b.dataset.k === v.skin); b.classList.toggle('tem', b.dataset.k === ja.skin); });
+    gC.querySelectorAll<HTMLElement>('.sw').forEach((b) => { b.classList.toggle('on', b.dataset.k === v.cor); b.classList.toggle('tem', b.dataset.k === ja.cor); });
+    rt.innerHTML = `<span><b>Rastro de brilho</b><small>faíscas atrás dela enquanto sobe</small></span><em>${ja.rastro ? 'já é sua' : 'R$ ' + reais(PRECO_VISUAL.rastro)}</em><i class="${v.rastro ? 'on' : ''}"></i>`;
+    const f = fundoVis(v); pl.style.background = f; pl.classList.toggle('pers', !!f);
+    pfx.textContent = (v.faixa || '').toUpperCase(); pfx.hidden = !v.faixa; prt.hidden = !v.rastro;
+    const nv = novos(v, ja), valor = precoVisual(nv, ja), n = [nv.faixa, nv.skin || nv.cor, nv.rastro].filter(Boolean).length;
+    tot.innerHTML = n >= 3 ? `3 itens juntos: <b>R$ ${reais(PRECO_VISUAL.desconto3)} de desconto</b>` : n ? `faltam ${3 - n} ${3 - n === 1 ? 'item' : 'itens'} pra ganhar R$ ${reais(PRECO_VISUAL.desconto3)} de desconto` : 'escolha o que quiser: tudo é opcional';
+    aoMudar(nv, valor);
+  };
+  pinta();
+  return box;
+}
+/** personalizar uma lanterna que já está no céu: a prévia aparece nela mesma, ao vivo */
+function personalizar(i: number) {
+  const l = ceu.L[i]; if (!l) return;
+  if (!dadosCeu?.pix.ativo && !DEMO) { aviso('a personalização abre em breve ✨'); return; }
+  const ja: Visual = { ...(l.vis || {}) }; let escolha: Visual = {}, valor = 0, pago = false;
+  const { cx, fechar: f } = folha('personalizar', () => { if (!pago) ceu.vestir(i, ja); });
+  cx.append(el('p', 'f-tag', `@${l.handle} · céu de ${soNome(l.cid)}`), el('h2', 'f-tit', 'Personalize sua lanterna'));
+  const ok = el('button', 'btn ouro grande'); ok.type = 'button';
+  cx.append(painelVisual(ja, (v, p) => {
+    escolha = v; valor = p;
+    ceu.vestir(i, { ...ja, ...v, ...(v.skin ? { cor: undefined } : v.cor ? { skin: undefined } : {}) });
+    ok.disabled = vazio(v); ok.innerHTML = vazio(v) ? '<span>Escolha um item</span>' : `<span>Pagar R$ ${reais(p)} no Pix</span>`;
+  }), ok);
+  ceu.mirar(i, 30);
+  ok.onclick = () => { if (vazio(escolha)) return; pago = true; void valor; f(); pagar({ tipo: 'personalizar', handle: l.handle, lanterna: String(l.id), desejo: '', visual: escolha }, l); };
+}
 
 /* como soltar (sem link): comentar no post */
 function comoSoltar() {
@@ -223,10 +296,15 @@ async function escolher(cod: string) {
   const famIn = [1, 2, 3].map((n) => { const i = el('input', 'in'); i.placeholder = `@ da pessoa ${n}${n > 1 ? ' (opcional)' : ''}`; i.autocapitalize = 'none'; famBox.append(i); return i; });
   famBox.append(el('p', 'f-nota', 'o mesmo desejo sobe nas 4, com o seu nome. Depois você manda o link pra cada um.'));
   const ok = el('button', 'btn grande'); ok.type = 'button';
-  const pinta = () => { ops.querySelectorAll<HTMLElement>('.op').forEach((b) => b.classList.toggle('on', b.dataset.k === tipo)); fam.classList.toggle('on', tipo === 'familia'); par.hidden = tipo !== 'casal'; famBox.hidden = tipo !== 'familia'; ok.className = 'btn grande ' + (tipo === 'gratis' ? 'papel escuro' : 'ouro'); ok.innerHTML = tipo === 'gratis' ? `${ICO.lanterna}<span>Soltar minha lanterna</span>` : `<span>Pagar R$ ${preco(tipo)} no Pix e soltar</span>`; };
+  let extras: Visual = {}, vExtras = 0, pintaLink: (() => void) | undefined;
+  const pvAbrir = bt('pv-abrir', '<span><b>Personalizar</b><small>faixa com frase, skin, cor e rastro de brilho</small></span><em>opcional</em>', () => { pvAbrir.hidden = true; pv.hidden = false; });
+  const pv = painelVisual({}, (v, p) => { extras = v; vExtras = p; pintaLink?.(); }); pv.hidden = true;
+  if (!pix) pvAbrir.hidden = true;
+  const pinta = () => { ops.querySelectorAll<HTMLElement>('.op').forEach((b) => b.classList.toggle('on', b.dataset.k === tipo)); fam.classList.toggle('on', tipo === 'familia'); par.hidden = tipo !== 'casal'; famBox.hidden = tipo !== 'familia'; const total = (tipo === 'gratis' ? 0 : Number(preco(tipo).replace(',', '.'))) + vExtras; ok.className = 'btn grande ' + (total ? 'ouro' : 'papel escuro'); ok.innerHTML = total ? `<span>Pagar R$ ${reais(total)} no Pix e soltar</span>` : `${ICO.lanterna}<span>Soltar minha lanterna</span>`; }; pintaLink = pinta;
   ok.onclick = async () => {
     const d = ta.value.trim();
     if (d.length < 2) { aviso('escreva seu desejo'); ta.focus(); return; }
+    if (tipo === 'gratis' && !vazio(extras)) { f(); pagar({ tipo: 'gratis', handle: l.handle, desejo: d, codigo: cod, visual: extras }, { ...l, desejo: d, tipo: 0, vis: extras }); return; }
     if (tipo === 'gratis') {
       ok.disabled = true;
       const s = DEMO ? { ok: true, id: 900000 + Math.floor(rnd() * 99999) } : await api.soltar(cod, d);
@@ -239,12 +317,12 @@ async function escolher(cod: string) {
       if (tipo === 'familia') {
         const nomes = famIn.map((i) => i.value.trim().replace(/^@+/, '')).filter(Boolean);
         if (!nomes.length) { aviso('digite pelo menos um @'); famIn[0].focus(); return; }
-        f(); pagar({ tipo, handle: l.handle, desejo: d, codigo: cod, nomes: nomes.join(',') }, { ...l, desejo: d, tipo: 1 }); return;
+        f(); pagar({ tipo, handle: l.handle, desejo: d, codigo: cod, nomes: nomes.join(','), visual: extras }, { ...l, desejo: d, tipo: 1, vis: vazio(extras) ? undefined : extras }); return;
       }
-      f(); pagar({ tipo, handle: l.handle, par: p, desejo: d, codigo: cod }, { ...l, desejo: d, tipo: tipo === 'casal' ? 3 : 1, par: p || undefined });
+      f(); pagar({ tipo, handle: l.handle, par: p, desejo: d, codigo: cod, visual: extras }, { ...l, desejo: d, tipo: tipo === 'casal' ? 3 : 1, par: p || undefined, vis: vazio(extras) ? undefined : extras });
     }
   };
-  cx.append(el('p', 'f-rot', '1 · escolha a sua lanterna'), ops, fam, par, famBox, el('p', 'f-rot', '2 · escreva seu desejo'), nota, sg, ok, el('p', 'f-nota', pix ? 'As pagas só mudam o visual da lanterna. Pix pelo Mercado Pago, cai na hora.' : 'Se você não escolher, ela sobe grátis sozinha em 24h.'));
+  cx.append(el('p', 'f-rot', '1 · escolha a sua lanterna'), ops, fam, par, famBox, el('p', 'f-rot', '2 · escreva seu desejo'), nota, sg, el('p', 'f-rot', '3 · deixe com a sua cara'), pvAbrir, pv, ok, el('p', 'f-nota', pix ? 'As pagas só mudam o visual da lanterna. Pix pelo Mercado Pago, cai na hora.' : 'Se você não escolher, ela sobe grátis sozinha em 24h.'));
   pinta();
 }
 
@@ -260,9 +338,9 @@ function subir(l: Lanterna) {
 }
 
 /* ============ Pix (Mercado Pago) ============ */
-async function pagar(b: Record<string, string>, previa?: Lanterna) {
+async function pagar(b: Record<string, any>, previa?: Lanterna) {
   const { cx, fechar: f } = folha('pix');
-  cx.append(el('p', 'f-tag', b.tipo === 'topo' ? 'topo do céu · 24 horas' : b.tipo === 'familia' ? 'pacote família · 4 douradas' : 'pagamento'), el('h2', 'f-tit', `Pix · R$ ${preco(b.tipo)}`));
+  cx.append(el('p', 'f-tag', b.tipo === 'topo' ? 'topo do céu · 24 horas' : b.tipo === 'familia' ? 'pacote família · 4 douradas' : b.tipo === 'personalizar' ? 'personalização' : 'pagamento'), el('h2', 'f-tit', `Pix · R$ ${reais((b.tipo === 'gratis' || b.tipo === 'personalizar' ? 0 : Number(preco(b.tipo).replace(',', '.'))) + precoVisual(b.visual || {}, b.tipo === 'personalizar' ? previa?.vis || {} : {}))}`));
   const area = el('div', 'pix-area', 'gerando o Pix…'); cx.append(area);
   if (DEMO) {
     area.textContent = ''; area.append(el('div', 'qr-demo'), el('p', 'f-nota', 'demonstração: no site de verdade aparece o QR Code do Mercado Pago.'));
@@ -270,6 +348,7 @@ async function pagar(b: Record<string, string>, previa?: Lanterna) {
   }
   const r = await api.pix(b);
   if (!r.ok) { area.textContent = r.erro || 'não consegui gerar o Pix'; return; }
+  cx.querySelector('.f-tit')!.textContent = `Pix · R$ ${reais(r.valor)}`;   // o valor que vale é o do servidor
   area.textContent = '';
   const img = el('img', 'qr') as HTMLImageElement; img.src = 'data:image/png;base64,' + r.qr; img.alt = 'QR Code Pix';
   const copia = bt('btn linha grande', `${ICO.copiar}<span>Copiar código Pix</span>`, async () => { try { await navigator.clipboard.writeText(r.copia); aviso('código copiado: cole no app do seu banco'); } catch { aviso('não deu pra copiar'); } });
@@ -284,20 +363,25 @@ async function pagar(b: Record<string, string>, previa?: Lanterna) {
   }, 3000);
   function concluir(id: number) {
     aviso('💸 Pix recebido!', 1500);
+    if (b.tipo === 'personalizar') {   // veste a que já está no céu
+      const i = ceu.indice(Number(b.lanterna)), ja = previa?.vis || {}, v = b.visual as Visual;
+      if (i >= 0) { ceu.vestir(i, { ...ja, ...v, ...(v.skin ? { cor: undefined } : v.cor ? { skin: undefined } : {}) }); setTimeout(() => { ceu.mirar(i, 30); mostrar(i, false); aviso('sua lanterna está de cara nova ✨', 3600, 'ouro'); }, 700); }
+      return;
+    }
     if (b.tipo === 'topo') {   // não nasce lanterna nova: a dela sobe pro alto da cidade
       const i = ceu.indice(Number(b.lanterna));
       if (i >= 0) { ceu.forca(i, 3); setTimeout(() => { ceu.mirar(i, 46); mostrar(i, false); aviso(`sua lanterna está no topo do céu de ${soNome(ceu.L[i]!.cid)} pelas próximas 24h ✨`, 4600, 'ouro'); }, 900); }
       return;
     }
-    const base: Lanterna = previa || { id, handle: b.tipo === 'presente' ? b.par : b.handle, desejo: b.desejo, cid: cidIdx(b.cidade || 'Brasil'), tipo: b.tipo === 'casal' ? 3 : 1, forca: 0.6, de: b.tipo === 'presente' ? b.handle : undefined };
+    const base: Lanterna = previa || { id, handle: b.tipo === 'presente' ? b.par : b.handle, desejo: b.desejo, cid: cidIdx(b.cidade || 'Brasil'), tipo: b.tipo === 'casal' ? 3 : b.tipo === 'gratis' ? 0 : 1, forca: 0.6, de: b.tipo === 'presente' ? b.handle : undefined };
     if (b.tipo === 'familia') {   // as da família aparecem em volta; o site recarrega o resto no ao vivo
-      const nomes = (b.nomes || '').split(',').filter(Boolean);
+      const nomes: string[] = String(b.nomes || '').split(',').filter(Boolean);
       if (previa) setTimeout(() => subir({ ...base, id, tipo: 1, forca: 0.6 }), 900);
       else nomes.forEach((n, k) => setTimeout(() => { ceu.colocar({ ...base, id: id + k + 1, handle: n, tipo: 1, forca: 0.5, de: n === b.handle ? undefined : b.handle }, true); }, 900 + k * 500));
       setTimeout(() => familiaEnviada(nomes, b.handle), previa ? 10_500 : 3500);
       return;
     }
-    setTimeout(() => subir({ ...base, id, tipo: b.tipo === 'casal' ? 3 : 1, forca: 0.6 }), 900);
+    setTimeout(() => subir({ ...base, id, tipo: b.tipo === 'casal' ? 3 : b.tipo === 'gratis' ? 0 : 1, forca: b.tipo === 'gratis' ? 0 : 0.6 }), 900);
     if (b.tipo === 'presente') setTimeout(() => presenteEnviado(b.par, b.handle), 10_500);
   }
 }
@@ -462,6 +546,8 @@ async function aoVivoLoop() {
 function carregarDemo() {
   const lista: Compacta[] = [];
   for (let k = 0; k < 2600; k++) { const ci = cidadeSorteada(), t = rnd() < 0.04 ? 1 : rnd() < 0.012 ? 2 : rnd() < 0.04 ? 3 : 0, e = EMPRESAS[k % EMPRESAS.length]; lista.push([k + 1, t === 2 ? e.ig : handleFake(), t === 2 ? e.oferta : DESEJOS[Math.floor(rnd() * DESEJOS.length)], `${CIDADES[ci][0]}|${CIDADES[ci][1]}`, t, rnd() < 0.08 ? rnd() * 1.2 : rnd() * 0.25, t === 3 ? handleFake() : '', '', t === 2 ? [e.nome, e.ig, e.oferta, e.cor] : 0]); }
+  const FXS = ['FELIZ 2027', 'CASA COMIGO, JU?', 'TE AMO MÃE', '2027 É NOSSO', 'FAMÍLIA SILVA', 'VAI DAR CERTO'];
+  for (const c of lista) if (c[4] !== 2 && rnd() < 0.05) c[9] = [rnd() < 0.6 ? SKINS[Math.floor(rnd() * SKINS.length)].k : '', rnd() < 0.4 ? CORES[Math.floor(rnd() * CORES.length)].k : '', rnd() < 0.35 ? 1 : 0, rnd() < 0.45 ? FXS[Math.floor(rnd() * FXS.length)] : ''];
   ceu.lote(() => { for (const c of lista) ceu.colocar(deCompacta(c)); });
   total = 48_213; nCidades = 2049;
   const cont2 = new Map<string, number>(); for (const c of lista) cont2.set(c[3], (cont2.get(c[3]) || 0) + 1);

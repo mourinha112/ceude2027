@@ -1,6 +1,6 @@
 /* Cartão de story (1080×1920): céu, lanterna acesa, o desejo em destaque, @ e o site. Compartilha como imagem
    quando o celular deixa (Web Share com arquivo); senão baixa o PNG. */
-export async function cartaoStory(o: { handle: string; desejo: string; cidade: string; tipo: number; site: string }) {
+export async function cartaoStory(o: { handle: string; desejo: string; cidade: string; tipo: number; site: string; faixa?: string; cores?: [string, string] }) {
   await document.fonts?.ready;
   const W = 1080, H = 1920, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d')!;
   const g = x.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#040818'); g.addColorStop(0.55, '#1a1250'); g.addColorStop(0.82, '#5a2a6e'); g.addColorStop(1, '#f08a5d'); x.fillStyle = g; x.fillRect(0, 0, W, H);
@@ -10,9 +10,16 @@ export async function cartaoStory(o: { handle: string; desejo: string; cidade: s
   // a lanterna dela
   const cx = W / 2, cy = 640, cor = o.tipo === 1 ? ['#fff4c9', '#ffd56a', 'rgba(255,220,120,'] : o.tipo === 3 ? ['#ffd1e1', '#ff7ea8', 'rgba(255,130,170,'] : ['#ffe2a8', '#ff9a3c', 'rgba(255,160,70,'];
   const halo = x.createRadialGradient(cx, cy, 0, cx, cy, 420); halo.addColorStop(0, cor[2] + '.75)'); halo.addColorStop(0.35, cor[2] + '.25)'); halo.addColorStop(1, cor[2] + '0)'); x.fillStyle = halo; x.fillRect(0, 0, W, H);
-  const corpo = x.createLinearGradient(0, cy - 170, 0, cy + 170); corpo.addColorStop(0, cor[1]); corpo.addColorStop(1, cor[0]);
+  const corpo = x.createLinearGradient(0, cy - 170, 0, cy + 170); corpo.addColorStop(0, o.cores ? o.cores[1] : cor[1]); corpo.addColorStop(1, o.cores ? o.cores[0] : cor[0]);
   x.fillStyle = corpo; x.beginPath(); x.moveTo(cx - 120, cy - 160); x.quadraticCurveTo(cx, cy - 210, cx + 120, cy - 160); x.lineTo(cx + 95, cy + 150); x.quadraticCurveTo(cx, cy + 175, cx - 95, cy + 150); x.closePath(); x.fill();
   x.fillStyle = 'rgba(255,255,255,.85)'; x.beginPath(); x.ellipse(cx, cy + 130, 40, 18, 0, 0, 7); x.fill();
+  if (o.faixa) {   // a faixa pendurada embaixo da lanterna
+    const t = o.faixa.toUpperCase(); x.font = "900 88px 'Big Shoulders Display', sans-serif";
+    const w = Math.min(980, x.measureText(t).width + 120), fy = cy + 250, fx0 = cx - w / 2;
+    x.strokeStyle = 'rgba(232,220,195,.8)'; x.lineWidth = 3; x.beginPath(); x.moveTo(cx - 70, cy + 165); x.lineTo(fx0 + 16, fy); x.moveTo(cx + 70, cy + 165); x.lineTo(fx0 + w - 16, fy); x.stroke();
+    x.fillStyle = '#f3ead8'; x.beginPath(); x.moveTo(fx0, fy); x.lineTo(fx0 + w, fy); x.lineTo(fx0 + w - 30, fy + 62); x.lineTo(fx0 + w, fy + 124); x.lineTo(fx0, fy + 124); x.lineTo(fx0 + 30, fy + 62); x.closePath(); x.fill();
+    x.fillStyle = '#c4361d'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(t, cx, fy + 66, w - 100); x.textBaseline = 'alphabetic';
+  }
   // textos
   x.textAlign = 'center'; x.fillStyle = '#ffe2b0'; x.font = "800 52px 'Big Shoulders Display', sans-serif"; x.fillText('MEU DESEJO PRA 2027', cx, 1020);
   x.fillStyle = '#fffaf0'; let f = 112; x.font = `700 ${f}px Caveat, cursive`;

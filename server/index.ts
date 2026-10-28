@@ -14,6 +14,7 @@ import { migrar, q, q1, lerConfig, gravarConfig } from './db';
 import { registrarInstagram, processarComentario } from './instagram';
 import { registrarPix, pixAtivo } from './pix';
 import { limparHandle, desejoOk } from './texto';
+import { PRECO_VISUAL } from './catalogo';
 import { maiorId, aoVivo } from './vivo';
 
 const app = new Hono();
@@ -32,10 +33,11 @@ function limite(nome: string, max: number, janelaMs = 60_000) {
 app.use('*', async (c, next) => { await next(); c.header('x-content-type-options', 'nosniff'); c.header('referrer-policy', 'strict-origin-when-cross-origin'); });
 
 /* ---------- formato compacto das lanternas ---------- */
-type Linha = { id: number; handle: string; desejo: string; cidade: string; uf: string; tipo: number; par: string | null; de: string | null; forca: number; topo: boolean; empresa: any; criado_em: Date };
+type Linha = { id: number; handle: string; desejo: string; cidade: string; uf: string; tipo: number; par: string | null; de: string | null; forca: number; topo: boolean; empresa: any; visual: { cor?: string; skin?: string; rastro?: boolean; faixa?: string } | null; criado_em: Date };
 // no topo (pago, 24h) a força vale 3: acima de qualquer lanterna fortalecida (máx. 2,5). O site reconhece por forca >= 3.
-const COLS = `id, handle, desejo, cidade, uf, tipo, par, de, forca, coalesce(destaque_ate > now(), false) topo, empresa, criado_em`;
-const compacto = (l: Linha) => [l.id, l.handle, l.desejo, l.cidade + (l.uf ? '|' + l.uf : ''), l.tipo, l.topo ? 3 : Math.round(l.forca * 100) / 100, l.par || '', l.de || '', l.empresa ? [l.empresa.nome, l.empresa.ig || '', l.empresa.oferta || '', l.empresa.cor || '#3ff0d8'] : 0];
+const COLS = `id, handle, desejo, cidade, uf, tipo, par, de, forca, coalesce(destaque_ate > now(), false) topo, empresa, visual, criado_em`;
+const compacto = (l: Linha) => [l.id, l.handle, l.desejo, l.cidade + (l.uf ? '|' + l.uf : ''), l.tipo, l.topo ? 3 : Math.round(l.forca * 100) / 100, l.par || '', l.de || '', l.empresa ? [l.empresa.nome, l.empresa.ig || '', l.empresa.oferta || '', l.empresa.cor || '#3ff0d8'] : 0,
+  l.visual ? [l.visual.skin || '', l.visual.cor || '', l.visual.rastro ? 1 : 0, l.visual.faixa || ''] : 0];
 
 let cacheCeu: { em: number; corpo: Record<string, any> } | null = null;
 app.get('/api/ceu', limite('ceu', 120), async (c) => {
@@ -48,7 +50,7 @@ app.get('/api/ceu', limite('ceu', 120), async (c) => {
   ]);
   const vistos = new Set<number>(), lista: unknown[] = [];
   for (const l of [...fortes, ...recentes]) if (!vistos.has(l.id)) { vistos.add(l.id); lista.push(compacto(l)); }
-  const corpo = { ok: true, total: tot!.n, cidades: tot!.c, ranking: cid.map((x) => [x.cidade, x.uf, x.n]), lanternas: lista, ultimo: maiorId(), post: (await lerConfig('post_url')) || `https://www.instagram.com/${config.ig.usuario}/`, pix: { ativo: pixAtivo(), precos: config.precos }, virada: config.virada, ig: config.ig.usuario };
+  const corpo = { ok: true, total: tot!.n, cidades: tot!.c, ranking: cid.map((x) => [x.cidade, x.uf, x.n]), lanternas: lista, ultimo: maiorId(), post: (await lerConfig('post_url')) || `https://www.instagram.com/${config.ig.usuario}/`, pix: { ativo: pixAtivo(), precos: config.precos, visual: PRECO_VISUAL }, virada: config.virada, ig: config.ig.usuario };
   cacheCeu = { em: Date.now(), corpo };
   return c.json(corpo);
 });
@@ -119,12 +121,13 @@ app.get('/api/admin/resumo', async (c) => {
     q1(`select count(*)::int n, coalesce(sum(valor), 0)::float total from pagamentos where status = 'pago'`),
     q(`select comment_id, username, texto, estado, resposta_estado, erro, recebido_em from ig_comentarios order by recebido_em desc limit 30`),
     q(`select * from pedidos_empresa order by id desc limit 30`),
-    q(`select id, handle, desejo, desejo_oculto, cidade, uf, tipo, origem, oculta, criado_em from lanternas order by id desc limit 60`),
+    q(`select id, handle, desejo, desejo_oculto, cidade, uf, tipo, origem, oculta, visual->>'faixa' faixa, criado_em from lanternas order by id desc limit 60`),
     q1(`select count(*)::int n from ig_comentarios where resposta_estado = 'falhou'`),
   ]);
   return c.json({ ok: true, n, hoje: hoje!.n, pagos, comentarios: coms, pedidos, ultimas, falhas: falhas!.n, post: await lerConfig('post_url'), avisos: conferir() });
 });
 app.post('/api/admin/lanterna/:id/ocultar', async (c) => { const b = await c.req.json().catch(() => ({} as any)); await q(`update lanternas set oculta = $2 where id = $1`, [Number(c.req.param('id')), b.oculta !== false]); cacheCeu = null; return c.json({ ok: true }); });
+app.post('/api/admin/lanterna/:id/faixa', async (c) => { await q(`update lanternas set visual = visual - 'faixa' where id = $1`, [Number(c.req.param('id'))]); cacheCeu = null; return c.json({ ok: true }); });
 app.post('/api/admin/lanterna/:id/desejo', async (c) => { const b = await c.req.json().catch(() => ({} as any)); const d = String(b.desejo || '').slice(0, 90); if (!desejoOk(d)) return c.json({ ok: false, erro: 'texto não passou no filtro' }, 400); await q(`update lanternas set desejo = $2, desejo_oculto = false where id = $1`, [Number(c.req.param('id')), d]); cacheCeu = null; return c.json({ ok: true }); });
 app.post('/api/admin/empresa', async (c) => {
   const b = await c.req.json().catch(() => ({} as any)), s = (v: unknown, n: number) => String(v || '').trim().slice(0, n);
