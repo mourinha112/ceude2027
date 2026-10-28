@@ -53,27 +53,41 @@ const lobby = el('section', 'lobby');
   const fundo = el('div', 'lb-fundo');
   for (let i = 0; i < 24; i++) { const l = el('i', 'lb-l' + (i % 8 === 0 ? ' ouro' : '')); l.style.left = `${4 + rnd() * 92}%`; l.style.animationDelay = `${-rnd() * 16}s`; l.style.animationDuration = `${11 + rnd() * 9}s`; l.style.setProperty('--s', String(0.5 + rnd() * 0.9)); fundo.append(l); }
   const box = el('div', 'lb-box');
-  box.append(el('p', 'lb-tag', 'até a virada · 31 de dezembro, meia-noite'));
-  const tit = el('h1', 'lb-tit'); tit.innerHTML = '<span>Céu de</span><b>2027</b>'; box.append(tit);
-  box.append(el('p', 'lb-sub', 'Solte uma lanterna com o seu desejo. À meia-noite do dia 31, todas viram fogos no céu do Brasil, ao mesmo tempo.'));
-  const cont = el('div', 'lb-cont'); const c: Record<string, HTMLElement> = {};
-  for (const [k, r] of [['d', 'dias'], ['h', 'horas'], ['m', 'min'], ['s', 'seg']]) { const d = el('div'); c[k] = el('b', '', '00'); d.append(c[k], el('small', '', r)); cont.append(d); }
-  const nums = el('p', 'lb-nums');
-  box.append(cont, nums);
-  box.append(bt('btn ouro grande', `${ICO.lanterna}<span>Soltar minha lanterna</span>`, () => { entrarNoCeu(); setTimeout(comoSoltar, 700); }));
-  box.append(bt('btn linha grande', 'Ver o céu agora', () => entrarNoCeu()));
-  const pas = el('ol', 'lb-passos');
-  for (const t of ['Comente o nome da sua cidade no post', 'Abra o link que chega no seu direct', 'Escreva seu desejo e veja sua lanterna subir']) pas.append(el('li', '', t));
-  box.append(pas);
+  const topoL = el('div', 'lb-topo'), vivo = el('span', 'lb-vivo');
+  topoL.append(el('span', 'lb-marca', 'Céu de 2027'), vivo);
+  const meio = el('div', 'lb-meio');
+  const tit = el('h1', 'lb-tit'); tit.innerHTML = '<small>Céu de</small><b>2027</b><span class="lb-mao">solte seu<br>desejo</span>';
+  const cont = el('p', 'lb-cont');
+  // um bilhete de verdade do céu, trocando sozinho (só aparece quando já tem lanterna)
+  const bil = el('figure', 'lb-bil'), bq = el('blockquote'), cap = el('figcaption'); bil.append(bq, cap); bil.hidden = true;
+  meio.append(tit, el('p', 'lb-sub', 'Uma lanterna com o seu desejo no céu da sua cidade. À meia-noite do dia 31, todas viram fogos, ao mesmo tempo.'), cont, bil);
+  const acoes = el('div', 'lb-acoes');
+  acoes.append(bt('btn papel grande', `${ICO.lanterna}<span>Soltar minha lanterna</span>`, () => { entrarNoCeu(); setTimeout(comoSoltar, 700); }), bt('lb-ver', 'só quero ver o céu', () => entrarNoCeu()));
+  const como = el('p', 'lb-como'); como.innerHTML = `É só <b>comentar sua cidade</b> no post do ${MARCA.ig}. Chega um <b>link no seu direct</b>, você escreve o desejo e solta.`;
+  box.append(topoL, meio, acoes, como);
   lobby.append(fundo, box);
-  const pinta = () => { const f = faltam(); c.d.textContent = String(f.d); c.h.textContent = dois(f.h); c.m.textContent = dois(f.m); c.s.textContent = dois(f.s); nums.innerHTML = total ? `<b>${fmt(total)}</b> ${total === 1 ? 'lanterna' : 'lanternas'} no céu · <b>${fmt(nCidades)}</b> ${nCidades === 1 ? 'cidade' : 'cidades'}` : 'seja uma das primeiras lanternas do céu'; };
-  pinta(); setInterval(pinta, 1000);
+  const pinta = () => {
+    const f = faltam();
+    cont.innerHTML = `faltam <b>${f.d}</b> dias <b class="rel">${dois(f.h)}:${dois(f.m)}:${dois(f.s)}</b>`;
+    vivo.innerHTML = total ? `<i></i><b>${fmt(total)}</b> no céu` : '<i></i>abrindo o céu';
+  };
+  let ultBil = -1;
+  const trocaBil = () => {
+    if (!lobby.isConnected) return;
+    const ok: number[] = []; ceu.L.forEach((l, i) => { if (l && l.tipo !== 2 && l.desejo && !l.desejo.includes('segredo')) ok.push(i); });
+    if (!ok.length) { bil.hidden = true; return; }
+    let i = ok[Math.floor(rnd() * ok.length)]; if (ok.length > 1 && i === ultBil) i = ok[(ok.indexOf(i) + 1) % ok.length]; ultBil = i;
+    const l = ceu.L[i]!;
+    const poe = () => { bq.textContent = l.desejo; cap.textContent = `@${l.handle}, ${soNome(l.cid)}`; bil.classList.remove('troca'); };
+    if (bil.hidden) { bil.hidden = false; poe(); } else { bil.classList.add('troca'); setTimeout(poe, 380); }
+  };
+  pinta(); setInterval(pinta, 1000); setTimeout(trocaBil, 900); setInterval(trocaBil, 5200);
 }
 function entrarNoCeu() { if (!lobby.isConnected) return; lobby.classList.add('sai'); document.body.classList.add('no-ceu'); setTimeout(() => lobby.remove(), 900); }
 
 /* ============ HUD ============ */
 const topo = el('header', 'topo');
-const marca = el('div', 'marca'); marca.innerHTML = '<i>Céu de</i> 2027';
+const marca = el('div', 'marca'); marca.textContent = 'Céu de 2027';
 const cont = bt('cont', '', () => abrirVirada());
 topo.append(marca, cont);
 const contador = el('p', 'contador');
@@ -81,14 +95,14 @@ const feed = el('div', 'feed');
 const filtroChip = bt('filtro', '', () => { ceu.filtrar(-1); filtroChip.hidden = true; }); filtroChip.hidden = true;
 const nav = el('nav', 'nav');
 nav.append(
-  bt('nv', `${ICO.cidade}<small>Cidades</small>`, () => abrirCidades()),
-  bt('nv', `${ICO.presente}<small>Presente</small>`, () => abrirPresente()),
+  bt('nv', 'Cidades', () => abrirCidades()),
+  bt('nv dot', 'Presente', () => abrirPresente()),
   bt('soltar', `${ICO.lanterna}<b>Soltar</b>`, () => comoSoltar()),
-  bt('nv', `${ICO.loja}<small>Empresas</small>`, () => abrirEmpresas()),
-  bt('nv', `${ICO.fogos}<small>Virada</small>`, () => abrirVirada()),
+  bt('nv', 'Empresas', () => abrirEmpresas()),
+  bt('nv', 'Virada', () => abrirVirada()),
 );
 ui.append(topo, contador, feed, filtroChip, nav);
-const pintaHud = () => { const f = faltam(); cont.innerHTML = `<small>faltam</small> <b>${f.d}d ${dois(f.h)}:${dois(f.m)}:${dois(f.s)}</b>`; contador.innerHTML = `<i></i><b>${fmt(total)}</b> ${total === 1 ? 'lanterna' : 'lanternas'} no céu`; };
+const pintaHud = () => { const f = faltam(); cont.innerHTML = `<b>${f.d}d ${dois(f.h)}:${dois(f.m)}:${dois(f.s)}</b><small>pra virada</small>`; contador.innerHTML = `<i></i><b>${fmt(total)}</b> ${total === 1 ? 'lanterna' : 'lanternas'} no céu`; };
 setInterval(pintaHud, 1000); pintaHud();
 
 let avT = 0;
@@ -103,35 +117,39 @@ function noFeed(html: string) { const it = el('div', 'fd'); it.innerHTML = html;
 const card = el('section', 'card'); card.hidden = true; ui.append(card);
 const etq = el('div', 'etq'); etq.hidden = true; ui.append(etq);
 let sel: number | null = null;
-const TIPO_NOME = ['lanterna', 'lanterna dourada', 'lanterna de empresa', 'lanterna de casal'];
+const TIPO_NOME = ['lanterna', 'dourada', 'empresa', 'de casal'];
 function mostrar(i: number, mirar = true) {
   const l = ceu.L[i]; if (!l) return;
   sel = i; ceu.selecionar(i); if (mirar) ceu.mirar(i, 38);
   card.innerHTML = ''; card.className = 'card t' + l.tipo;
   card.append(bt('fx', ICO.x, fechar));
   if (l.tipo === 2 && l.empresa) {
-    card.append(el('p', 'cd-tipo', 'lanterna patrocinada'), el('h2', 'cd-quem', l.empresa.nome));
+    card.append(el('p', 'carimbo', 'patrocinado'), el('h2', 'cd-quem', l.empresa.nome));
     const n = el('blockquote', 'nota'); n.textContent = l.empresa.oferta; card.append(n);
     card.append(el('p', 'cd-cid', `${nomeCid(l.cid)}${l.empresa.ig ? ' · @' + l.empresa.ig : ''}`));
     if (l.empresa.ig) { const a = el('a', 'btn ouro grande', `Ver @${l.empresa.ig} no Instagram`) as HTMLAnchorElement; a.href = `https://www.instagram.com/${l.empresa.ig}/`; a.target = '_blank'; a.rel = 'noopener sponsored'; card.append(a); }
   } else {
     const meu = ls.get('c27_eu') === l.handle;
-    card.append(el('p', 'cd-tipo', TIPO_NOME[l.tipo] + (meu ? ' · a sua' : '') + (l.de ? ` · presente de @${l.de}` : '')));
-    card.append(el('h2', 'cd-quem', '@' + l.handle + (l.par ? ` & @${l.par}` : '')));
+    card.append(el('p', 'carimbo', TIPO_NOME[l.tipo] + (meu ? ' · a sua' : '')));
     const n = el('blockquote', 'nota'); n.textContent = l.desejo; card.append(n);
-    card.append(el('p', 'cd-cid', `céu de ${nomeCid(l.cid)}`));
+    const ass = el('p', 'cd-ass'); ass.textContent = '— @' + l.handle + (l.par ? ` & @${l.par}` : '');
+    ass.append(el('span', '', `céu de ${nomeCid(l.cid)}${l.de ? ` · presente de @${l.de}` : ''}`)); card.append(ass);
     const ac = el('div', 'acoes');
     ac.append(
-      bt('btn ouro', `${ICO.coracao}<span>Fortalecer</span>`, () => void fortalecer(i)),
+      bt('btn cheio', `${ICO.coracao}<span>Fortalecer</span>`, () => void fortalecer(i)),
       bt('btn linha', `${ICO.share}<span>Story</span>`, () => void story(l)),
       bt('btn linha', `${ICO.presente}<span>Presentear</span>`, () => abrirPresente(l.handle)),
     );
     card.append(ac);
-    if (meu && l.tipo === 0 && dadosCeu?.pix.ativo) card.append(bt('virar-dourada', `deixar dourada · R$ ${preco('dourada')}`, () => pagar({ tipo: 'dourada', handle: l.handle, desejo: '' })));
+    if (meu && dadosCeu?.pix.ativo) {
+      if (l.tipo === 0) card.append(bt('upsell', `<i class="mini-l d"></i><div><b>Deixar a sua dourada</b><small>maior, mais brilho, em destaque no céu</small></div><em>R$ ${preco('dourada')}</em>`, () => pagar({ tipo: 'dourada', handle: l.handle, desejo: '' })));
+      card.append(bt('upsell leve', `<i class="mini-l"></i><div><b>Soltar uma pra alguém</b><small>mãe, amor, amigo: chega com o seu nome</small></div><em>R$ ${preco('presente')}</em>`, () => abrirPresente()));
+    }
   }
   card.hidden = false; etq.hidden = false; etq.textContent = l.tipo === 2 && l.empresa ? l.empresa.nome : '@' + l.handle;
 }
 function fechar() { sel = null; ceu.selecionar(null); card.hidden = true; etq.hidden = true; }
+if (DEMO) (window as unknown as Record<string, unknown>).__mostrar = (t: number) => { const i = ceu.L.findIndex((l) => l && l.tipo === t); if (i >= 0) mostrar(i); };
 ceu.aoTocar((i) => { if (i === null) { fechar(); return; } mostrar(i); });
 ceu.aoPasso(() => { if (sel === null) return; const p = ceu.tela(sel); etq.style.transform = `translate(${p.x}px, ${p.y - 18}px) translate(-50%, -100%)`; etq.style.opacity = p.ok ? '1' : '0'; });
 async function fortalecer(i: number) {
@@ -162,11 +180,11 @@ const preco = (t: string) => (dadosCeu?.pix.precos[t] ?? ({ dourada: 4.9, casal:
 function comoSoltar() {
   const { cx } = folha('como');
   cx.append(el('p', 'f-tag', 'como soltar a sua'), el('h2', 'f-tit', 'Comente sua cidade no post'));
-  const ex = el('div', 'exemplo'); ex.innerHTML = '<small>exemplo de comentário</small><p>Recife 🏮</p><small class="ex-alt">quer escrever o desejo ali mesmo? também vale: “Recife - casa própria”</small>'; cx.append(ex);
+  const ex = el('div', 'exemplo'); ex.innerHTML = '<small>comente assim</small><div class="ig-com"><i></i><p><b>seu_perfil</b>Recife 🏮</p></div><small class="ex-alt">quer já mandar o desejo? também vale: “Recife - casa própria”</small>'; cx.append(ex);
   const pas = el('ol', 'passos');
   for (const t of [`Abra o post do ${MARCA.ig} e comente o nome da sua cidade`, 'Em instantes chega um link só seu no direct', 'Lá você escreve seu desejo, escolhe a lanterna e solta']) pas.append(el('li', '', t));
   cx.append(pas);
-  const a = el('a', 'btn ouro grande') as HTMLAnchorElement; a.href = postUrl(); a.target = '_blank'; a.rel = 'noopener'; a.innerHTML = `${ICO.ig}<span>Comentar no Instagram</span>`; cx.append(a);
+  const a = el('a', 'btn ouro grande') as HTMLAnchorElement; a.href = postUrl(); a.target = '_blank'; a.rel = 'noopener'; a.className = 'btn ouro grande'; a.innerHTML = `${ICO.ig}<span>Comentar no Instagram</span>`; cx.append(a);
   cx.append(bt('btn linha grande', `${ICO.copiar}<span>Copiar o exemplo</span>`, async () => { try { await navigator.clipboard.writeText('Recife 🏮'); aviso('copiado! troque pela sua cidade'); } catch { aviso('Recife - casa própria'); } }));
   const busca = el('form', 'busca'); const inp = el('input'); inp.placeholder = 'já comentou? digite seu @'; inp.autocapitalize = 'none'; busca.append(inp, el('button', '', 'achar'));
   busca.onsubmit = (e) => { e.preventDefault(); void irPara(inp.value); };
@@ -184,18 +202,18 @@ async function escolher(cod: string) {
   const { cx, fechar: f } = folha('escolher');
   const semDesejo = r.oculto || !l.desejo;
   cx.append(el('p', 'f-tag', `@${l.handle} · céu de ${soNome(l.cid)}`), el('h2', 'f-tit', semDesejo ? 'Escreva seu desejo pra 2027' : 'Seu desejo está pronto pra subir'));
-  const nota = el('div', 'nota-ed'); const ta = el('textarea'); ta.maxLength = 90; ta.rows = 2; ta.value = r.oculto ? '' : l.desejo; ta.placeholder = 'escreva seu desejo pra 2027'; nota.append(el('small', '', semDesejo ? 'seu desejo · só aparece no céu quando você soltar' : 'seu desejo (dá pra ajustar)'), ta); cx.append(nota);
+  const nota = el('div', 'nota-ed'); const ta = el('textarea'); ta.maxLength = 90; ta.rows = 2; ta.value = r.oculto ? '' : l.desejo; ta.placeholder = 'escreva seu desejo pra 2027'; nota.append(el('small', '', semDesejo ? 'seu desejo · só aparece quando você soltar' : 'seu desejo (dá pra ajustar)'), ta); cx.append(nota);
   if (semDesejo) { const sg = el('div', 'sugs'); for (const t of ['casa própria 🏠', 'saúde pra minha família', 'passar no concurso', 'emprego novo', 'viajar mais ✈️', 'que 2027 seja leve']) sg.append(bt('sug', esc(t), () => { ta.value = t; })); cx.append(sg); setTimeout(() => ta.focus(), 400); }
   let tipo = 'gratis' as 'gratis' | 'dourada' | 'casal';
   const ops = el('div', 'opcoes');
-  const OP: [typeof tipo, string, string, string][] = [['gratis', 'Lanterna', 'grátis', 'sobe no céu da sua cidade'], ['dourada', 'Dourada', `R$ ${preco('dourada')}`, 'maior, mais brilho e em destaque'], ['casal', 'De casal', `R$ ${preco('casal')}`, 'duas lanternas que sobem juntas']];
+  const OP: [typeof tipo, string, string, string][] = [['gratis', 'Lanterna', 'grátis', 'sobe no céu da sua cidade'], ['dourada', 'Dourada', `R$ ${preco('dourada')}`, 'maior, brilha mais e fica em destaque'], ['casal', 'De casal', `R$ ${preco('casal')}`, 'duas lanternas que sobem juntas']];
   for (const [k, n, p, d] of OP) {
-    const b = bt('op op-' + k, `<i class="mini-l"></i><b>${n}</b><em>${p}</em><small>${d}</small>`, () => { if (k !== 'gratis' && !pix) { aviso('as lanternas especiais abrem em breve ✨'); return; } tipo = k; pinta(); });
+    const b = bt('op op-' + k, `${k === 'dourada' ? '<span class="fita">brilha mais</span>' : ''}<i class="mini-l"></i><b>${n}</b><em>${p}</em><small>${d}</small>`, () => { if (k !== 'gratis' && !pix) { aviso('as lanternas especiais abrem em breve ✨'); return; } tipo = k; pinta(); });
     b.dataset.k = k; if (k !== 'gratis' && !pix) b.classList.add('off'); ops.append(b);
   }
   const par = el('input', 'in'); par.placeholder = '@ do seu amor'; par.autocapitalize = 'none'; par.hidden = true;
-  const ok = el('button', 'btn ouro grande'); ok.type = 'button';
-  const pinta = () => { ops.querySelectorAll<HTMLElement>('.op').forEach((b) => b.classList.toggle('on', b.dataset.k === tipo)); par.hidden = tipo !== 'casal'; ok.innerHTML = tipo === 'gratis' ? `${ICO.lanterna}<span>Soltar minha lanterna</span>` : `<span>Pagar R$ ${preco(tipo)} no Pix e soltar</span>`; };
+  const ok = el('button', 'btn grande'); ok.type = 'button';
+  const pinta = () => { ops.querySelectorAll<HTMLElement>('.op').forEach((b) => b.classList.toggle('on', b.dataset.k === tipo)); par.hidden = tipo !== 'casal'; ok.className = 'btn grande ' + (tipo === 'gratis' ? 'papel escuro' : 'ouro'); ok.innerHTML = tipo === 'gratis' ? `${ICO.lanterna}<span>Soltar minha lanterna</span>` : `<span>Pagar R$ ${preco(tipo)} no Pix e soltar</span>`; };
   ok.onclick = async () => {
     const d = ta.value.trim();
     if (d.length < 2) { aviso('escreva seu desejo'); ta.focus(); return; }
@@ -211,7 +229,7 @@ async function escolher(cod: string) {
       f(); pagar({ tipo, handle: l.handle, par: p, desejo: d, codigo: cod }, { ...l, desejo: d, tipo: tipo === 'casal' ? 3 : 1, par: p || undefined });
     }
   };
-  cx.append(el('p', 'f-rot', 'escolha a sua lanterna'), ops, par, ok, el('p', 'f-nota', pix ? 'pagar só muda o visual da lanterna. Pix pelo Mercado Pago.' : 'se você não escolher, ela sobe grátis sozinha em 24h.'));
+  cx.append(el('p', 'f-rot', 'escolha a sua lanterna'), ops, par, ok, el('p', 'f-nota', pix ? 'As pagas só mudam o visual da lanterna. Pix pelo Mercado Pago, cai na hora.' : 'Se você não escolher, ela sobe grátis sozinha em 24h.'));
   pinta();
 }
 

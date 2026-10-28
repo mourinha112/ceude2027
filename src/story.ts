@@ -14,15 +14,15 @@ export async function cartaoStory(o: { handle: string; desejo: string; cidade: s
   x.fillStyle = corpo; x.beginPath(); x.moveTo(cx - 120, cy - 160); x.quadraticCurveTo(cx, cy - 210, cx + 120, cy - 160); x.lineTo(cx + 95, cy + 150); x.quadraticCurveTo(cx, cy + 175, cx - 95, cy + 150); x.closePath(); x.fill();
   x.fillStyle = 'rgba(255,255,255,.85)'; x.beginPath(); x.ellipse(cx, cy + 130, 40, 18, 0, 0, 7); x.fill();
   // textos
-  x.textAlign = 'center'; x.fillStyle = '#ffe2b0'; x.font = '600 44px Manrope, sans-serif'; x.fillText('MEU DESEJO PRA 2027', cx, 1020);
-  x.fillStyle = '#fffaf0'; let f = 92; x.font = `italic 500 ${f}px Fraunces, Georgia, serif`;
+  x.textAlign = 'center'; x.fillStyle = '#ffe2b0'; x.font = "800 52px 'Big Shoulders Display', sans-serif"; x.fillText('MEU DESEJO PRA 2027', cx, 1020);
+  x.fillStyle = '#fffaf0'; let f = 112; x.font = `700 ${f}px Caveat, cursive`;
   const linhas = (txt: string, max: number) => { const out: string[] = []; let l = ''; for (const w of txt.split(' ')) { const t = l ? l + ' ' + w : w; if (x.measureText(t).width > max && l) { out.push(l); l = w; } else l = t; } if (l) out.push(l); return out; };
-  let ls = linhas(`“${o.desejo}”`, 900); while (ls.length > 4 && f > 56) { f -= 8; x.font = `italic 500 ${f}px Fraunces, Georgia, serif`; ls = linhas(`“${o.desejo}”`, 900); }
+  let ls = linhas(`“${o.desejo}”`, 900); while (ls.length > 4 && f > 56) { f -= 8; x.font = `700 ${f}px Caveat, cursive`; ls = linhas(`“${o.desejo}”`, 900); }
   ls.forEach((l, i) => x.fillText(l, cx, 1140 + i * f * 1.15));
-  x.font = '700 50px Manrope, sans-serif'; x.fillStyle = '#ffffff'; x.fillText('@' + o.handle, cx, 1180 + ls.length * f * 1.15 + 40);
-  x.font = '600 38px Manrope, sans-serif'; x.fillStyle = '#d8d2f0'; x.fillText(`no céu de ${o.cidade}`, cx, 1240 + ls.length * f * 1.15 + 40);
-  x.font = 'italic 500 64px Fraunces, Georgia, serif'; x.fillStyle = '#ffd56a'; x.fillText('Céu de 2027', cx, 1760);
-  x.font = '600 36px Manrope, sans-serif'; x.fillStyle = '#ffffff'; x.fillText('solte a sua: ' + o.site.replace(/^https?:\/\//, ''), cx, 1830);
+  x.font = '700 50px Archivo, sans-serif'; x.fillStyle = '#ffffff'; x.fillText('@' + o.handle, cx, 1180 + ls.length * f * 1.15 + 40);
+  x.font = '500 38px Archivo, sans-serif'; x.fillStyle = '#d8d2f0'; x.fillText(`no céu de ${o.cidade}`, cx, 1240 + ls.length * f * 1.15 + 40);
+  x.font = "900 92px 'Big Shoulders Display', sans-serif"; x.fillStyle = '#f3ead8'; x.fillText('CÉU DE 2027', cx, 1760);
+  x.font = '600 36px Archivo, sans-serif'; x.fillStyle = '#ffffff'; x.fillText('solte a sua: ' + o.site.replace(/^https?:\/\//, ''), cx, 1830);
   const blob: Blob = await new Promise((ok) => c.toBlob((b) => ok(b!), 'image/png'));
   const arq = new File([blob], 'meu-desejo-2027.png', { type: 'image/png' });
   try { if (navigator.canShare?.({ files: [arq] })) { await navigator.share({ files: [arq], text: 'Soltei minha lanterna no Céu de 2027 🏮' }); return 'compartilhado'; } } catch { return 'cancelado'; }
