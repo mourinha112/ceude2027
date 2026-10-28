@@ -41,7 +41,8 @@ export type Lanterna = { id: number; handle: string; desejo: string; cid: number
 export function criarCeu(canvas: HTMLCanvasElement) {
   const cel = innerWidth < 760;
   const renderer = new T.WebGLRenderer({ canvas, antialias: !cel, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(Math.min(devicePixelRatio, cel ? 1.5 : 2));
+  // ?hd: resolução cheia da tela (só pra gravar vídeo; no celular de verdade fica no limite normal)
+  renderer.setPixelRatio(new URLSearchParams(location.search).has('hd') ? devicePixelRatio : Math.min(devicePixelRatio, cel ? 1.5 : 2));
   const scene = new T.Scene();
   const camera = new T.PerspectiveCamera(62, 1, 0.3, 3000);
   camera.position.set(0, 4, 0);

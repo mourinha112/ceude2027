@@ -196,7 +196,8 @@ const preco = (t: string) => (dadosCeu?.pix.precos[t] ?? ({ dourada: 4.9, casal:
 /* ============ personalizar: faixa, skin, cor, rastro ============ */
 const FUNDO_SKIN: Record<number, (a: string, b: string) => string> = {
   1: (a, b) => `repeating-linear-gradient(90deg, ${a} 0 5px, ${b} 5px 10px)`,
-  2: (a, b) => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='${a}' d='M12 21s-8-5.2-8-11.2A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8 2.8C20 15.8 12 21 12 21z'/></svg>`)}") 50% 55% / 72% no-repeat, ${b}`,
+  // aspas duplas no SVG (o encodeURIComponent troca por %22) e simples no url(): o estilo vai dentro de style="..."
+  2: (a, b) => `url('data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="${a}" d="M12 21s-8-5.2-8-11.2A4.6 4.6 0 0 1 12 7a4.6 4.6 0 0 1 8 2.8C20 15.8 12 21 12 21z"/></svg>`)}') 50% 55% / 72% no-repeat, ${b}`,
   3: (a, b) => `radial-gradient(${b} 0 1.6px, transparent 2px) 0 0 / 7px 7px, ${a}`,
   4: (a, b) => `radial-gradient(circle, #1a3a9e 0 22%, transparent 23%), conic-gradient(from 45deg at 50% 50%, ${b} 0 25%, transparent 0 50%, ${b} 0 75%, transparent 0) 50% 50% / 70% 70% no-repeat, ${a}`,
   5: () => 'linear-gradient(180deg, #ff6b6b, #ffd36b, #6bff9a, #6bc6ff, #b36bff)',
