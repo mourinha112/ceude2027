@@ -3,3 +3,11 @@ dist
 .env
 *.log
 public/_shot.html
+
+# vídeo: quadros e saídas são gerados
+video/quadros/
+video/saida/
+video/node_modules/
+video/public/clipes/
+video/public/trilha.wav
+video/*.log
