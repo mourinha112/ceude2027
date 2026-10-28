@@ -45,7 +45,7 @@ const nomeCid = (i: number) => { const [n, uf] = (CID[i] || 'Brasil').split('|')
 const soNome = (i: number) => (CID[i] || 'Brasil').split('|')[0];
 function deCompacta(c: Compacta): Lanterna {
   const [id, handle, desejo, cidade, tipo, forca, par, de, emp, vis] = c;
-  return { id, handle, desejo, cid: cidIdx(cidade), tipo: tipo as Tipo, forca, par: par || undefined, de: de || undefined, empresa: emp ? { nome: emp[0], ig: emp[1], oferta: emp[2], cor: emp[3] } : undefined,
+  return { id, handle, desejo, cid: cidIdx(cidade), tipo: tipo as Tipo, forca, par: par || undefined, de: de || undefined, empresa: emp ? { nome: emp[0], ig: emp[1], oferta: emp[2], cor: emp[3], logo: emp[4] || undefined } : undefined,
     vis: vis ? { skin: vis[0] || undefined, cor: vis[1] || undefined, rastro: !!vis[2], faixa: vis[3] || undefined } : undefined };
 }
 function postUrl() { return dadosCeu?.post || `https://www.instagram.com/${MARCA.ig.slice(1)}/`; }
@@ -127,7 +127,9 @@ function mostrar(i: number, mirar = true) {
   card.innerHTML = ''; card.className = 'card t' + l.tipo;
   card.append(bt('fx', ICO.x, fechar));
   if (l.tipo === 2 && l.empresa) {
-    card.append(el('p', 'carimbo', 'patrocinado'), el('h2', 'cd-quem', l.empresa.nome));
+    card.append(el('p', 'carimbo', 'patrocinado'));
+    if (l.empresa.logo) { const lg = el('img', 'cd-logo') as HTMLImageElement; lg.src = l.empresa.logo; lg.alt = l.empresa.nome; card.append(lg); }
+    card.append(el('h2', 'cd-quem', l.empresa.nome));
     const n = el('blockquote', 'nota'); n.textContent = l.empresa.oferta; card.append(n);
     card.append(el('p', 'cd-cid', `${nomeCid(l.cid)}${l.empresa.ig ? ' · @' + l.empresa.ig : ''}`));
     if (l.empresa.ig) { const a = el('a', 'btn ouro grande', `Ver @${l.empresa.ig} no Instagram`) as HTMLAnchorElement; a.href = `https://www.instagram.com/${l.empresa.ig}/`; a.target = '_blank'; a.rel = 'noopener sponsored'; card.append(a); }
@@ -146,13 +148,17 @@ function mostrar(i: number, mirar = true) {
       bt('btn linha', `${ICO.presente}<span>Presentear</span>`, () => abrirPresente(l.handle)),
     );
     card.append(ac);
-    if (meu && dadosCeu?.pix.ativo) {   // no máximo duas ofertas, a mais forte primeiro
-      const of: HTMLElement[] = [];
-      of.push(bt('upsell', `<i class="pv-mini"></i><div><b>Personalizar a sua</b><small>faixa com frase, skin, cor, rastro de brilho</small></div><em>a partir de R$ ${reais(PRECO_VISUAL.cor)}</em>`, () => personalizar(i)));
-      if (l.tipo === 0) of.push(bt('upsell leve', `<i class="mini-l d"></i><div><b>Deixar a sua dourada</b><small>maior, mais brilho, em destaque no céu</small></div><em>R$ ${preco('dourada')}</em>`, () => pagar({ tipo: 'dourada', handle: l.handle, desejo: '' })));
-      if (!noTopo(l)) of.push(bt('upsell' + (of.length ? ' leve' : ''), `<i class="seta"></i><div><b>Colocar no topo do céu de ${esc(soNome(l.cid))}</b><small>acima de todas da cidade por 24 horas</small></div><em>R$ ${preco('topo')}</em>`, () => pagar({ tipo: 'topo', handle: l.handle, lanterna: String(l.id), desejo: '' }, l)));
-      if (of.length < 2) of.push(bt('upsell leve', `<i class="mini-l"></i><div><b>Soltar pra família toda</b><small>4 douradas com o seu nome · sai R$ 3,73 cada</small></div><em>R$ ${preco('familia')}</em>`, () => abrirPresente('', true)));
-      card.append(...of.slice(0, 2));
+    if (dadosCeu?.pix.ativo) {   // as duas ofertas aparecem em todo bilhete (o seu ou de qualquer pessoa): lembrete constante
+      card.append(
+        bt('upsell', `<i class="pv-mini"></i><div><b>Turbinar seu balão</b><small>faixa com frase, skin, cor, rastro de brilho</small></div><em>a partir de R$ ${reais(PRECO_VISUAL.cor)}</em>`, () => (meu ? personalizar(i) : void turbinarOMeu())),
+        bt('upsell leve', `<i class="mini-l"></i><div><b>Soltar pra família toda</b><small>4 douradas com o seu nome · sai R$ 3,73 cada</small></div><em>R$ ${preco('familia')}</em>`, () => abrirPresente('', true)),
+      );
+      if (meu) {   // na sua, mais duas opções em uma linha discreta
+        const mais = el('p', 'cd-mais');
+        if (l.tipo === 0) mais.append(bt('lk', `deixar dourada · R$ ${preco('dourada')}`, () => pagar({ tipo: 'dourada', handle: l.handle, desejo: '' })));
+        if (!noTopo(l)) mais.append(bt('lk', `topo do céu de ${esc(soNome(l.cid))} 24h · R$ ${preco('topo')}`, () => pagar({ tipo: 'topo', handle: l.handle, lanterna: String(l.id), desejo: '' }, l)));
+        if (mais.childElementCount) card.append(mais);
+      }
     }
   }
   card.hidden = false; etq.hidden = false; etq.textContent = l.tipo === 2 && l.empresa ? l.empresa.nome : '@' + l.handle;
@@ -237,13 +243,22 @@ function painelVisual(ja: Visual, aoMudar: (v: Visual, valor: number) => void) {
   pinta();
   return box;
 }
+/** do bilhete de outra pessoa: acha a lanterna de quem está vendo e abre o turbinar nela; sem lanterna, ensina a soltar */
+async function turbinarOMeu() {
+  const eu = ls.get('c27_eu');
+  if (!eu) { aviso('primeiro solte o seu: comente sua cidade no post 🏮', 3200); setTimeout(comoSoltar, 600); return; }
+  let i = ceu.L.findIndex((x) => x && x.handle === eu && x.tipo !== 2);
+  if (i < 0 && !DEMO) { const r = await api.porHandle(eu); const c = r.ok ? r.lanternas.find((x) => x[1] === eu) : undefined; if (c) i = ceu.colocar(deCompacta(c)); }
+  if (i < 0) { aviso('sua lanterna ainda não subiu: abra o link do seu direct', 3400); return; }
+  mostrar(i); setTimeout(() => personalizar(i), 900);
+}
 /** personalizar uma lanterna que já está no céu: a prévia aparece nela mesma, ao vivo */
 function personalizar(i: number) {
   const l = ceu.L[i]; if (!l) return;
-  if (!dadosCeu?.pix.ativo && !DEMO) { aviso('a personalização abre em breve ✨'); return; }
+  if (!dadosCeu?.pix.ativo && !DEMO) { aviso('o turbinar abre em breve ✨'); return; }
   const ja: Visual = { ...(l.vis || {}) }; let escolha: Visual = {}, valor = 0, pago = false;
   const { cx, fechar: f } = folha('personalizar', () => { if (!pago) ceu.vestir(i, ja); });
-  cx.append(el('p', 'f-tag', `@${l.handle} · céu de ${soNome(l.cid)}`), el('h2', 'f-tit', 'Personalize sua lanterna'));
+  cx.append(el('p', 'f-tag', `@${l.handle} · céu de ${soNome(l.cid)}`), el('h2', 'f-tit', 'Turbine seu balão'));
   const ok = el('button', 'btn ouro grande'); ok.type = 'button';
   cx.append(painelVisual(ja, (v, p) => {
     escolha = v; valor = p;
@@ -297,7 +312,7 @@ async function escolher(cod: string) {
   famBox.append(el('p', 'f-nota', 'o mesmo desejo sobe nas 4, com o seu nome. Depois você manda o link pra cada um.'));
   const ok = el('button', 'btn grande'); ok.type = 'button';
   let extras: Visual = {}, vExtras = 0, pintaLink: (() => void) | undefined;
-  const pvAbrir = bt('pv-abrir', '<span><b>Personalizar</b><small>faixa com frase, skin, cor e rastro de brilho</small></span><em>opcional</em>', () => { pvAbrir.hidden = true; pv.hidden = false; });
+  const pvAbrir = bt('pv-abrir', '<span><b>Turbinar seu balão</b><small>faixa com frase, skin, cor e rastro de brilho</small></span><em>opcional</em>', () => { pvAbrir.hidden = true; pv.hidden = false; });
   const pv = painelVisual({}, (v, p) => { extras = v; vExtras = p; pintaLink?.(); }); pv.hidden = true;
   if (!pix) pvAbrir.hidden = true;
   const pinta = () => { ops.querySelectorAll<HTMLElement>('.op').forEach((b) => b.classList.toggle('on', b.dataset.k === tipo)); fam.classList.toggle('on', tipo === 'familia'); par.hidden = tipo !== 'casal'; famBox.hidden = tipo !== 'familia'; const total = (tipo === 'gratis' ? 0 : Number(preco(tipo).replace(',', '.'))) + vExtras; ok.className = 'btn grande ' + (total ? 'ouro' : 'papel escuro'); ok.innerHTML = total ? `<span>Pagar R$ ${reais(total)} no Pix e soltar</span>` : `${ICO.lanterna}<span>Soltar minha lanterna</span>`; }; pintaLink = pinta;
@@ -340,7 +355,7 @@ function subir(l: Lanterna) {
 /* ============ Pix (Mercado Pago) ============ */
 async function pagar(b: Record<string, any>, previa?: Lanterna) {
   const { cx, fechar: f } = folha('pix');
-  cx.append(el('p', 'f-tag', b.tipo === 'topo' ? 'topo do céu · 24 horas' : b.tipo === 'familia' ? 'pacote família · 4 douradas' : b.tipo === 'personalizar' ? 'personalização' : 'pagamento'), el('h2', 'f-tit', `Pix · R$ ${reais((b.tipo === 'gratis' || b.tipo === 'personalizar' ? 0 : Number(preco(b.tipo).replace(',', '.'))) + precoVisual(b.visual || {}, b.tipo === 'personalizar' ? previa?.vis || {} : {}))}`));
+  cx.append(el('p', 'f-tag', b.tipo === 'topo' ? 'topo do céu · 24 horas' : b.tipo === 'familia' ? 'pacote família · 4 douradas' : b.tipo === 'personalizar' ? 'turbinar seu balão' : 'pagamento'), el('h2', 'f-tit', `Pix · R$ ${reais((b.tipo === 'gratis' || b.tipo === 'personalizar' ? 0 : Number(preco(b.tipo).replace(',', '.'))) + precoVisual(b.visual || {}, b.tipo === 'personalizar' ? previa?.vis || {} : {}))}`));
   const area = el('div', 'pix-area', 'gerando o Pix…'); cx.append(area);
   if (DEMO) {
     area.textContent = ''; area.append(el('div', 'qr-demo'), el('p', 'f-nota', 'demonstração: no site de verdade aparece o QR Code do Mercado Pago.'));
@@ -545,10 +560,11 @@ async function aoVivoLoop() {
 }
 function carregarDemo() {
   const lista: Compacta[] = [];
-  for (let k = 0; k < 2600; k++) { const ci = cidadeSorteada(), t = rnd() < 0.04 ? 1 : rnd() < 0.012 ? 2 : rnd() < 0.04 ? 3 : 0, e = EMPRESAS[k % EMPRESAS.length]; lista.push([k + 1, t === 2 ? e.ig : handleFake(), t === 2 ? e.oferta : DESEJOS[Math.floor(rnd() * DESEJOS.length)], `${CIDADES[ci][0]}|${CIDADES[ci][1]}`, t, rnd() < 0.08 ? rnd() * 1.2 : rnd() * 0.25, t === 3 ? handleFake() : '', '', t === 2 ? [e.nome, e.ig, e.oferta, e.cor] : 0]); }
+  for (let k = 0; k < 2600; k++) { const ci = cidadeSorteada(), t = rnd() < 0.04 ? 1 : rnd() < 0.012 ? 2 : rnd() < 0.04 ? 3 : 0, e = EMPRESAS[k % EMPRESAS.length]; lista.push([k + 1, t === 2 ? e.ig : handleFake(), t === 2 ? e.oferta : DESEJOS[Math.floor(rnd() * DESEJOS.length)], `${CIDADES[ci][0]}|${CIDADES[ci][1]}`, t, rnd() < 0.08 ? rnd() * 1.2 : rnd() * 0.25, t === 3 ? handleFake() : '', '', t === 2 ? [e.nome, e.ig, e.oferta, e.cor, e.logo || ''] : 0]); }
   const FXS = ['FELIZ 2027', 'CASA COMIGO, JU?', 'TE AMO MÃE', '2027 É NOSSO', 'FAMÍLIA SILVA', 'VAI DAR CERTO'];
   for (const c of lista) if (c[4] !== 2 && rnd() < 0.05) c[9] = [rnd() < 0.6 ? SKINS[Math.floor(rnd() * SKINS.length)].k : '', rnd() < 0.4 ? CORES[Math.floor(rnd() * CORES.length)].k : '', rnd() < 0.35 ? 1 : 0, rnd() < 0.45 ? FXS[Math.floor(rnd() * FXS.length)] : ''];
   ceu.lote(() => { for (const c of lista) ceu.colocar(deCompacta(c)); });
+  { const e = EMPRESAS[0]; ceu.colocar(deCompacta([799999, e.ig, e.oferta, 'Duque de Caxias|RJ', 2, 0.4, '', '', [e.nome, e.ig, e.oferta, e.cor, e.logo || '']]), false, true); }
   total = 48_213; nCidades = 2049;
   const cont2 = new Map<string, number>(); for (const c of lista) cont2.set(c[3], (cont2.get(c[3]) || 0) + 1);
   dadosCeu = { ok: true, total, cidades: nCidades, ranking: [...cont2].sort((a, b) => b[1] - a[1]).map(([k, n]) => { const [c, uf] = k.split('|'); return [c, uf, n * 18]; }), lanternas: [], ultimo: 0, post: `https://www.instagram.com/${MARCA.ig.slice(1)}/`, pix: { ativo: true, precos: { dourada: 4.9, casal: 7.9, presente: 4.9, familia: 14.9, topo: 9.9 } }, virada: 0, ig: MARCA.ig };

@@ -36,7 +36,7 @@ app.use('*', async (c, next) => { await next(); c.header('x-content-type-options
 type Linha = { id: number; handle: string; desejo: string; cidade: string; uf: string; tipo: number; par: string | null; de: string | null; forca: number; topo: boolean; empresa: any; visual: { cor?: string; skin?: string; rastro?: boolean; faixa?: string } | null; criado_em: Date };
 // no topo (pago, 24h) a força vale 3: acima de qualquer lanterna fortalecida (máx. 2,5). O site reconhece por forca >= 3.
 const COLS = `id, handle, desejo, cidade, uf, tipo, par, de, forca, coalesce(destaque_ate > now(), false) topo, empresa, visual, criado_em`;
-const compacto = (l: Linha) => [l.id, l.handle, l.desejo, l.cidade + (l.uf ? '|' + l.uf : ''), l.tipo, l.topo ? 3 : Math.round(l.forca * 100) / 100, l.par || '', l.de || '', l.empresa ? [l.empresa.nome, l.empresa.ig || '', l.empresa.oferta || '', l.empresa.cor || '#3ff0d8'] : 0,
+const compacto = (l: Linha) => [l.id, l.handle, l.desejo, l.cidade + (l.uf ? '|' + l.uf : ''), l.tipo, l.topo ? 3 : Math.round(l.forca * 100) / 100, l.par || '', l.de || '', l.empresa ? [l.empresa.nome, l.empresa.ig || '', l.empresa.oferta || '', l.empresa.cor || '#3ff0d8', l.empresa.logo || ''] : 0,
   l.visual ? [l.visual.skin || '', l.visual.cor || '', l.visual.rastro ? 1 : 0, l.visual.faixa || ''] : 0];
 
 let cacheCeu: { em: number; corpo: Record<string, any> } | null = null;
@@ -100,6 +100,13 @@ app.post('/api/l/:codigo/soltar', limite('soltar', 20), async (c) => {
   aoVivo(l.id); cacheCeu = null;
   return c.json({ ok: true, id: l.id });
 });
+/* logo da empresa (enviado pelo admin) */
+app.get('/api/logo/:id', async (c) => {
+  const l = await q1<{ tipo: string; dados: Buffer }>(`select tipo, dados from logos where id = $1`, [Number(c.req.param('id')) || 0]);
+  if (!l) return c.notFound();
+  return c.body(new Uint8Array(l.dados), 200, { 'content-type': l.tipo, 'cache-control': 'public, max-age=31536000, immutable' });
+});
+const LOGO_OK = (v: unknown) => typeof v === 'string' && /^(\/api\/logo\/\d+|\/logos\/[a-z0-9-]+\.(png|webp|jpg))$/.test(v);
 app.get('/api/saude', async (c) => c.json({ ok: true, db: !!(await q1(`select 1`).catch(() => null)), pix: pixAtivo(), ig: !!config.ig.contaId }));
 
 /* ---------- admin ---------- */
@@ -129,11 +136,18 @@ app.get('/api/admin/resumo', async (c) => {
 app.post('/api/admin/lanterna/:id/ocultar', async (c) => { const b = await c.req.json().catch(() => ({} as any)); await q(`update lanternas set oculta = $2 where id = $1`, [Number(c.req.param('id')), b.oculta !== false]); cacheCeu = null; return c.json({ ok: true }); });
 app.post('/api/admin/lanterna/:id/faixa', async (c) => { await q(`update lanternas set visual = visual - 'faixa' where id = $1`, [Number(c.req.param('id'))]); cacheCeu = null; return c.json({ ok: true }); });
 app.post('/api/admin/lanterna/:id/desejo', async (c) => { const b = await c.req.json().catch(() => ({} as any)); const d = String(b.desejo || '').slice(0, 90); if (!desejoOk(d)) return c.json({ ok: false, erro: 'texto não passou no filtro' }, 400); await q(`update lanternas set desejo = $2, desejo_oculto = false where id = $1`, [Number(c.req.param('id')), d]); cacheCeu = null; return c.json({ ok: true }); });
+app.post('/api/admin/logo', async (c) => {
+  const b = await c.req.json().catch(() => ({} as any)), m = String(b.dados || '').match(/^data:(image\/(?:png|webp|jpeg));base64,([A-Za-z0-9+/=]+)$/);
+  if (!m) return c.json({ ok: false, erro: 'mande uma imagem PNG, JPG ou WebP' }, 400);
+  const buf = Buffer.from(m[2], 'base64'); if (buf.length > 400_000) return c.json({ ok: false, erro: 'imagem grande demais (máx. 400 KB)' }, 400);
+  const r = await q1<{ id: number }>(`insert into logos (tipo, dados) values ($1, $2) returning id`, [m[1], buf]);
+  return c.json({ ok: true, url: `/api/logo/${r!.id}` });
+});
 app.post('/api/admin/empresa', async (c) => {
   const b = await c.req.json().catch(() => ({} as any)), s = (v: unknown, n: number) => String(v || '').trim().slice(0, n);
   if (!s(b.nome, 60) || !s(b.oferta, 90)) return c.json({ ok: false, erro: 'nome e oferta' }, 400);
   const l = await q1<{ id: number }>(`insert into lanternas (handle, desejo, cidade, uf, tipo, forca, origem, empresa) values ($1, $2, $3, $4, 2, $5, 'admin', $6) returning id`,
-    [limparHandle(s(b.ig, 40)) || 'empresa', s(b.oferta, 90), s(b.cidade, 60) || 'Brasil', s(b.uf, 2).toUpperCase(), b.destaque ? 1.2 : 0.6, JSON.stringify({ nome: s(b.nome, 60), ig: limparHandle(s(b.ig, 40)), oferta: s(b.oferta, 90), cor: /^#[0-9a-f]{6}$/i.test(b.cor) ? b.cor : '#3ff0d8' })]);
+    [limparHandle(s(b.ig, 40)) || 'empresa', s(b.oferta, 90), s(b.cidade, 60) || 'Brasil', s(b.uf, 2).toUpperCase(), b.destaque ? 1.2 : 0.6, JSON.stringify({ nome: s(b.nome, 60), ig: limparHandle(s(b.ig, 40)), oferta: s(b.oferta, 90), cor: /^#[0-9a-f]{6}$/i.test(b.cor) ? b.cor : '#3ff0d8', logo: LOGO_OK(b.logo) ? b.logo : '' })]);
   aoVivo(l!.id); cacheCeu = null; return c.json({ ok: true, id: l!.id });
 });
 app.post('/api/admin/config', async (c) => {

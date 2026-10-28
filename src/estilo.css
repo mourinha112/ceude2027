@@ -264,3 +264,7 @@ select.in option { color: #111; }
 .pv-tot { margin: 2px 0 4px; font-size: 12.5px; color: var(--mudo); } .pv-tot b { color: var(--brasa); }
 .cd-faixa { display: inline-block; margin: 10px 0 0; background: #fff; color: #c4361d; font-family: var(--disp); font-weight: 900; font-size: 18px; letter-spacing: .4px; padding: 3px 18px 2px; clip-path: polygon(0 0, 100% 0, 94% 50%, 100% 100%, 0 100%, 6% 50%); box-shadow: inset 0 0 0 1px rgba(30, 26, 40, .1); }
 .upsell .pv-mini { flex: none; width: 20px; height: 26px; border-radius: 46% 46% 28% 28%; background: repeating-linear-gradient(90deg, #ff5d8f 0 4px, #ffe3ec 4px 8px); box-shadow: 0 0 14px 3px rgba(255, 93, 143, .45); }
+.cd-mais { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 10px 0 0; }
+.cd-mais .lk { border: 0; background: none; padding: 2px 0; font-size: 12.5px; font-weight: 600; color: var(--tinta2); text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(30, 26, 40, .3); }
+
+.cd-logo { display: block; width: 96px; height: 96px; object-fit: contain; margin: 0 0 6px; }

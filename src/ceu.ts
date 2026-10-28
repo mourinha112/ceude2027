@@ -36,7 +36,7 @@ float escalaL() { return (aTipo < 0.5 ? 1.0 : aTipo < 1.5 ? 1.7 : aTipo < 2.5 ? 
 float ambL() { return aCid < -0.5 ? 0.45 : 1.0; }
 `;
 
-export type Lanterna = { id: number; handle: string; desejo: string; cid: number; tipo: Tipo; forca: number; par?: string; de?: string; empresa?: { nome: string; ig: string; oferta: string; cor: string }; vis?: { skin?: string; cor?: string; rastro?: boolean; faixa?: string } };
+export type Lanterna = { id: number; handle: string; desejo: string; cid: number; tipo: Tipo; forca: number; par?: string; de?: string; empresa?: { nome: string; ig: string; oferta: string; cor: string; logo?: string }; vis?: { skin?: string; cor?: string; rastro?: boolean; faixa?: string } };
 
 export function criarCeu(canvas: HTMLCanvasElement) {
   const cel = innerWidth < 760;
@@ -241,6 +241,41 @@ export function criarCeu(canvas: HTMLCanvasElement) {
     }
     fios.geometry.setDrawRange(0, nl * 4); fp2.needsUpdate = true;
   }
+  /* logo da empresa no meio da lanterna patrocinada (só quem mandou logo), virado pra câmera e nunca pequeno demais */
+  const NPL = 12, placas = new Map<number, { nome: string; logo?: string }>(), texPlaca = new Map<string, T.CanvasTexture | 'carregando'>();
+  function texturaPlaca(p: { nome: string; logo?: string }) {
+    const key = p.logo || '', ja = texPlaca.get(key); if (ja) return ja === 'carregando' ? null : ja;
+    texPlaca.set(key, 'carregando');
+    const desenhar = (img: HTMLImageElement) => {   // só o logo, fundo transparente
+      const L2 = 512, cv = document.createElement('canvas'); cv.width = cv.height = L2; const x = cv.getContext('2d')!;
+      const k = Math.min(L2 / img.width, L2 / img.height), w = img.width * k, h = img.height * k; x.drawImage(img, (L2 - w) / 2, (L2 - h) / 2, w, h);
+      const t = new T.CanvasTexture(cv); t.colorSpace = T.SRGBColorSpace; t.anisotropy = 4; texPlaca.set(key, t);
+    };
+    const img = new Image(); img.crossOrigin = 'anonymous'; img.onload = () => desenhar(img); img.src = key;
+    return null;
+  }
+  const geoPl = new T.PlaneGeometry(1, 1);
+  const slotsPl = Array.from({ length: NPL }, () => {
+    const m = new T.Mesh(geoPl, new T.MeshBasicMaterial({ transparent: true, depthWrite: false, depthTest: false, side: T.DoubleSide }));
+    m.visible = false; m.frustumCulled = false; m.renderOrder = 5; scene.add(m); return { m, i: -1 };
+  });
+  let proxPl = 0; const PP = new T.Vector3(), DIR = new T.Vector3();
+  function passoPlacas(t: number) {
+    if (t > proxPl) {   // as mais perto ganham placa (empresas são poucas)
+      proxPl = t + 0.5;
+      const cand = [...placas.keys()].filter((i) => !(uni.uCid.value >= 0 && aCid[i] !== uni.uCid.value)).map((i) => [pos(i, PP).distanceToSquared(camera.position), i]).sort((a, b) => a[0] - b[0]).slice(0, NPL).map((c) => c[1]);
+      slotsPl.forEach((s, k) => { s.i = cand[k] ?? -1; s.m.visible = s.i >= 0; });
+    }
+    for (const s of slotsPl) {
+      if (s.i < 0) continue;
+      const tex = texturaPlaca(placas.get(s.i)!); const mat = s.m.material as T.MeshBasicMaterial;
+      if (!tex) { s.m.visible = false; continue; } s.m.visible = true; if (mat.map !== tex) { mat.map = tex; mat.needsUpdate = true; }
+      pos(s.i, PP); const d = PP.distanceTo(camera.position), esc = escalaCPU(s.i), w = Math.max(1.25 * esc, d * 0.03);
+      DIR.copy(camera.position).sub(PP).normalize();
+      s.m.position.copy(PP).addScaledVector(DIR, 0.9 * esc);   // colado na frente do papel, no meio do balão
+      s.m.scale.set(w, w, 1); s.m.quaternion.copy(camera.quaternion);
+    }
+  }
   const corRGB = (hex: string, out: Float32Array, i: number) => { const c = new T.Color(hex); out[i * 3] = c.r; out[i * 3 + 1] = c.g; out[i * 3 + 2] = c.b; };
   /** aplica a personalização da lanterna i nos atributos (cor/skin), no rastro e na faixa */
   function vestirI(i: number, v: Lanterna['vis']) {
@@ -249,6 +284,7 @@ export function criarCeu(canvas: HTMLCanvasElement) {
     const tinha = comRastro.has(i); if (v?.rastro) comRastro.add(i); else comRastro.delete(i); if (tinha !== comRastro.has(i) || v?.rastro) rastroSujo = true;
     if (v?.faixa) faixas.set(i, v.faixa); else faixas.delete(i);
   }
+  function marcarPlaca(i: number, l: Lanterna) { if (l.tipo === 2 && l.empresa?.logo) placas.set(i, { nome: l.empresa.nome, logo: l.empresa.logo }); else placas.delete(i); }
   let lote = false;
   const sujo = () => { for (const g of [gL, gP]) for (const k of Object.keys(attrs)) (g.getAttribute(k) as T.BufferAttribute).needsUpdate = true; };
 
@@ -339,6 +375,7 @@ export function criarCeu(canvas: HTMLCanvasElement) {
     }
     if (rastroSujo) montarRastro();
     if (faixas.size || slots.some((x) => x.i >= 0)) passoFaixas(t);
+    if (placas.size) passoPlacas(t);
     for (const f of passos) f(t);
     renderer.render(scene, camera);
   });
@@ -350,12 +387,12 @@ export function criarCeu(canvas: HTMLCanvasElement) {
     /** coloca uma lanterna real. nascendo = sobe da água agora; perto = na frente da câmera (a sua). Devolve o índice. */
     colocar(l: Lanterna, nascendo = false, perto = false) {
       const ja = porId.get(l.id);
-      if (ja !== undefined) { L[ja] = l; aTipo[ja] = l.tipo; aForca[ja] = l.forca; aCid[ja] = l.cid; vestirI(ja, l.vis); sujo(); return ja; }
+      if (ja !== undefined) { L[ja] = l; aTipo[ja] = l.tipo; aForca[ja] = l.forca; aCid[ja] = l.cid; vestirI(ja, l.vis); marcarPlaca(ja, l); sujo(); return ja; }
       if (usados >= N) return -1;
       const i = usados++;
       L[i] = l; porId.set(l.id, i); sortearBase(i, perto);
       if (perto) { const a = olhar.yaw + (rnd() - 0.5) * 0.5, r = 34; aBase[i * 3] = Math.sin(a) * r; aBase[i * 3 + 2] = -Math.cos(a) * r; aBase[i * 3 + 1] = 30 + rnd() * 10; }
-      aTipo[i] = l.tipo; aCid[i] = l.cid; aForca[i] = l.forca; aNasc[i] = nascendo ? uni.uT.value : -50 - rnd() * 10; vestirI(i, l.vis);
+      aTipo[i] = l.tipo; aCid[i] = l.cid; aForca[i] = l.forca; aNasc[i] = nascendo ? uni.uT.value : -50 - rnd() * 10; vestirI(i, l.vis); marcarPlaca(i, l);
       if (!lote) sujo();
       return i;
     },

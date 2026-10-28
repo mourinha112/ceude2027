@@ -19,7 +19,8 @@ export const DESEJOS = [
 ];
 const NOMES = ['ana', 'lucas', 'julia', 'pedro', 'bia', 'gabriel', 'maria', 'joao', 'duda', 'rafa', 'carol', 'thiago', 'leticia', 'vini', 'nanda', 'gui', 'isa', 'bruno', 'lari', 'matheus', 'sofia', 'enzo', 'alice', 'davi', 'manu', 'caio', 'clara', 'igor', 'yasmin', 'renata'];
 const SOBRE = ['silva', 'santos', 'souza', 'lima', 'costa', 'rocha', 'alves', 'melo', 'nunes', 'reis', 'dias', 'moura', 'barros', 'freitas'];
-export const EMPRESAS = [
+export const EMPRESAS: { nome: string; ig: string; oferta: string; cor: string; logo?: string }[] = [
+  { nome: 'The Pet House', ig: 'thepethouse.vilas', oferta: 'rações, petiscos e acessórios: tudo que seu pet precisa', cor: '#d62828', logo: '/logos/the-pet-house.png' },
   { nome: 'Padaria Pão Quente', ig: 'paoquente', oferta: 'panetone com 15% off até o Natal', cor: '#2bd4c0' },
   { nome: 'Studio Bella', ig: 'studiobella', oferta: 'escova + unha na promoção de fim de ano', cor: '#ff6bb5' },
   { nome: 'Academia Força Total', ig: 'forcatotal', oferta: 'janeiro grátis pra quem soltou lanterna', cor: '#6f8cff' },

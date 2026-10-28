@@ -55,6 +55,7 @@ alter table lanternas add column if not exists destaque_ate timestamptz;
 alter table lanternas add column if not exists visual jsonb;          -- personalização: {cor, skin, rastro, faixa}
 alter table pagamentos add column if not exists visual jsonb;        -- o que foi comprado nesse Pix   -- no topo do céu da cidade até essa hora
 create table if not exists pedidos_empresa (id serial primary key, nome text, ig text, zap text, cidade text, pacote text, criado_em timestamptz not null default now(), visto boolean not null default false);
+create table if not exists logos (id serial primary key, tipo text not null, dados bytea not null, criado_em timestamptz not null default now());
 create table if not exists config (chave text primary key, valor text not null, atualizado_em timestamptz not null default now());
 `;
 export async function migrar() { await pool.query(ESQUEMA); }

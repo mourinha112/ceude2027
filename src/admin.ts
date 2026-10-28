@@ -31,7 +31,7 @@ async function painel() {
   <section><h2>Últimas lanternas (moderação)</h2><table><tr><th>#</th><th>@</th><th>desejo</th><th>cidade</th><th>tipo</th><th>origem</th><th></th></tr>
     ${(j.ultimas || []).map((l: any) => `<tr style="${l.oculta ? 'opacity:.45' : ''}"><td class="mu">${l.id}</td><td>@${esc(l.handle)}</td><td>${esc(l.desejo)}${l.desejo_oculto ? ' <small class="av">(filtrado)</small>' : ''}${l.faixa ? `<br><small>faixa: <b>${esc(l.faixa)}</b> <button class="s" data-fx="${l.id}">tirar faixa</button></small>` : ''}</td><td>${esc(l.cidade)}${l.uf ? ', ' + esc(l.uf) : ''}</td><td>${TIPO[l.tipo]}</td><td class="mu">${esc(l.origem)}</td><td><button class="s" data-oc="${l.id}" data-v="${l.oculta ? 0 : 1}">${l.oculta ? 'mostrar' : 'ocultar'}</button></td></tr>`).join('')}</table></section>
   <section><h2>Nova lanterna de empresa</h2><div class="row">
-    <input id="eN" placeholder="nome"><input id="eI" placeholder="@ da empresa"><input id="eO" style="flex:1;min-width:220px" placeholder="oferta (aparece no céu)"><input id="eC" placeholder="cidade"><input id="eU" placeholder="UF" maxlength="2" style="width:60px"><input id="eK" type="color" value="#43d9c6"><label class="row"><input id="eD" type="checkbox">destaque</label><button id="eS">criar</button></div></section>
+    <input id="eN" placeholder="nome"><input id="eI" placeholder="@ da empresa"><input id="eO" style="flex:1;min-width:220px" placeholder="oferta (aparece no céu)"><input id="eC" placeholder="cidade"><input id="eU" placeholder="UF" maxlength="2" style="width:60px"><input id="eK" type="color" value="#43d9c6"><label class="row">logo <input id="eL" type="file" accept="image/png,image/jpeg,image/webp"></label><img id="eLv" style="width:40px;height:40px;object-fit:contain;display:none"><label class="row"><input id="eD" type="checkbox">destaque</label><button id="eS">criar</button></div></section>
   <section><h2>Pedidos de empresas</h2><table><tr><th>quando</th><th>empresa</th><th>@</th><th>WhatsApp</th><th>cidade</th><th>pacote</th></tr>
     ${(j.pedidos || []).map((p: any) => `<tr><td class="mu">${quando(p.criado_em)}</td><td>${esc(p.nome)}</td><td>${p.ig ? '@' + esc(p.ig) : ''}</td><td><a style="color:#7be08f" href="https://wa.me/55${esc(String(p.zap).replace(/\D/g, ''))}" target="_blank" rel="noopener">${esc(p.zap)}</a></td><td>${esc(p.cidade)}</td><td>${esc(p.pacote)}</td></tr>`).join('')}</table></section>`;
   const v = (id: string) => (document.getElementById(id) as HTMLInputElement).value;
@@ -39,7 +39,17 @@ async function painel() {
   document.getElementById('sair')!.onclick = async () => { await req('/api/admin/sair', {}); login(); };
   document.getElementById('sPost')!.onclick = async () => { await req('/api/admin/config', { post_url: v('post') }); void painel(); };
   document.getElementById('sTok')!.onclick = async () => { await req('/api/admin/config', { ig_token: v('tok') }); alert('token salvo'); };
-  document.getElementById('eS')!.onclick = async () => { const r = await req('/api/admin/empresa', { nome: v('eN'), ig: v('eI'), oferta: v('eO'), cidade: v('eC'), uf: v('eU'), cor: v('eK'), destaque: (document.getElementById('eD') as HTMLInputElement).checked }); if (!r.j.ok) alert(r.j.erro || 'erro'); void painel(); };
+  let logo = '';
+  (document.getElementById('eL') as HTMLInputElement).onchange = async (e) => {   // reduz pra 320px no navegador e manda
+    const f = (e.target as HTMLInputElement).files?.[0]; if (!f) return;
+    const img = new Image(); img.src = URL.createObjectURL(f); await img.decode();
+    const k = Math.min(1, 320 / Math.max(img.width, img.height)), cv = document.createElement('canvas'); cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+    cv.getContext('2d')!.drawImage(img, 0, 0, cv.width, cv.height);
+    const r = await req('/api/admin/logo', { dados: cv.toDataURL('image/png') });
+    if (!r.j.ok) { alert(r.j.erro || 'erro no logo'); return; }
+    logo = r.j.url; const pv = document.getElementById('eLv') as HTMLImageElement; pv.src = logo; pv.style.display = 'block';
+  };
+  document.getElementById('eS')!.onclick = async () => { const r = await req('/api/admin/empresa', { nome: v('eN'), ig: v('eI'), oferta: v('eO'), cidade: v('eC'), uf: v('eU'), cor: v('eK'), logo, destaque: (document.getElementById('eD') as HTMLInputElement).checked }); if (!r.j.ok) alert(r.j.erro || 'erro'); void painel(); };
   app.querySelectorAll<HTMLButtonElement>('[data-fx]').forEach((b) => { b.onclick = async () => { await req(`/api/admin/lanterna/${b.dataset.fx}/faixa`, {}); void painel(); }; });
   app.querySelectorAll<HTMLButtonElement>('[data-oc]').forEach((b) => { b.onclick = async () => { await req(`/api/admin/lanterna/${b.dataset.oc}/ocultar`, { oculta: b.dataset.v === '1' }); void painel(); }; });
 }
