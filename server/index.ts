@@ -33,9 +33,9 @@ function limite(nome: string, max: number, janelaMs = 60_000) {
 app.use('*', async (c, next) => { await next(); c.header('x-content-type-options', 'nosniff'); c.header('referrer-policy', 'strict-origin-when-cross-origin'); });
 
 /* ---------- formato compacto das lanternas ---------- */
-type Linha = { id: number; handle: string; desejo: string; cidade: string; uf: string; tipo: number; par: string | null; de: string | null; forca: number; topo: boolean; empresa: any; visual: { cor?: string; skin?: string; rastro?: boolean; faixa?: string } | null; criado_em: Date };
+type Linha = { id: number; handle: string; desejo: string; cidade: string; uf: string; tipo: number; par: string | null; de: string | null; forca: number; topo: boolean; empresa: any; visual: { cor?: string; skin?: string; rastro?: boolean; faixa?: string } | null; criado_em: Date; ordem: number };
 // no topo (pago, 24h) a força vale 3: acima de qualquer lanterna fortalecida (máx. 2,5). O site reconhece por forca >= 3.
-const COLS = `id, handle, desejo, cidade, uf, tipo, par, de, forca, coalesce(destaque_ate > now(), false) topo, empresa, visual, criado_em`;
+const COLS = `id, handle, desejo, cidade, uf, tipo, par, de, forca, coalesce(destaque_ate > now(), false) topo, empresa, visual, criado_em, ordem::int ordem`;
 const compacto = (l: Linha) => [l.id, l.handle, l.desejo, l.cidade + (l.uf ? '|' + l.uf : ''), l.tipo, l.topo ? 3 : Math.round(l.forca * 100) / 100, l.par || '', l.de || '', l.empresa ? [l.empresa.nome, l.empresa.ig || '', l.empresa.oferta || '', l.empresa.cor || '#3ff0d8', l.empresa.logo || ''] : 0,
   l.visual ? [l.visual.skin || '', l.visual.cor || '', l.visual.rastro ? 1 : 0, l.visual.faixa || ''] : 0];
 
@@ -57,9 +57,9 @@ app.get('/api/ceu', limite('ceu', 120), async (c) => {
 app.get('/api/ceu/novas', limite('novas', 240), async (c) => {
   const desde = Number(c.req.query('desde') || 0);
   if (desde >= maiorId() && maiorId() > 0) return c.json({ ok: true, lanternas: [], ultimo: maiorId() });
-  const l = await q<Linha>(`select ${COLS} from lanternas where not oculta and estado = 'no_ceu' and id > $1 order by id limit 60`, [desde]);
+  const l = await q<Linha>(`select ${COLS} from lanternas where not oculta and estado = 'no_ceu' and ordem > $1 order by ordem limit 60`, [desde]);
   const tot = await q1<{ n: number }>(`select count(*)::int n from lanternas where not oculta and estado = 'no_ceu'`);
-  const ult = l.length ? l[l.length - 1].id : desde; aoVivo(ult);
+  const ult = l.length ? l[l.length - 1].ordem : desde;
   return c.json({ ok: true, lanternas: l.map(compacto), ultimo: ult, total: tot!.n });
 });
 app.get('/api/lanterna/:handle', limite('lanterna', 120), async (c) => {
@@ -96,10 +96,10 @@ app.post('/api/l/:codigo/soltar', limite('soltar', 20), async (c) => {
   const b = await c.req.json().catch(() => ({} as any)), d = String(b.desejo || '').trim().slice(0, 90);
   if (d.length < 2) return c.json({ ok: false, erro: 'escreva seu desejo pra 2027' }, 400);
   if (!desejoOk(d)) return c.json({ ok: false, erro: 'esse desejo não passou no filtro (sem palavrão, link, telefone ou @)' }, 400);
-  const l = await q1<{ id: number }>(`update lanternas set estado = 'no_ceu', solta_em = now(), desejo = coalesce(nullif($2, ''), desejo), desejo_oculto = case when $2 <> '' then false else desejo_oculto end
+  const l = await q1<{ id: number }>(`update lanternas set estado = 'no_ceu', solta_em = now(), ordem = nextval('lanternas_ordem'), desejo = coalesce(nullif($2, ''), desejo), desejo_oculto = case when $2 <> '' then false else desejo_oculto end
                                        where codigo = $1 and estado = 'pendente' and not oculta returning id`, [cod, d]);
   if (!l) { const ja = await q1<{ id: number }>(`select id from lanternas where codigo = $1 and estado = 'no_ceu'`, [cod]); return ja ? c.json({ ok: true, id: ja.id, ja: true }) : c.json({ ok: false, erro: 'esse link não existe ou expirou' }, 404); }
-  aoVivo(l.id); cacheCeu = null;
+  void aoVivo(); cacheCeu = null;
   return c.json({ ok: true, id: l.id });
 });
 /* logo da empresa (enviado pelo admin) */
@@ -150,7 +150,7 @@ app.post('/api/admin/empresa', async (c) => {
   if (!s(b.nome, 60) || !s(b.oferta, 90)) return c.json({ ok: false, erro: 'nome e oferta' }, 400);
   const l = await q1<{ id: number }>(`insert into lanternas (handle, desejo, cidade, uf, tipo, forca, origem, empresa) values ($1, $2, $3, $4, 2, $5, 'admin', $6) returning id`,
     [limparHandle(s(b.ig, 40)) || 'empresa', s(b.oferta, 90), s(b.cidade, 60) || 'Brasil', s(b.uf, 2).toUpperCase(), b.destaque ? 1.2 : 0.6, JSON.stringify({ nome: s(b.nome, 60), ig: limparHandle(s(b.ig, 40)), oferta: s(b.oferta, 90), cor: /^#[0-9a-f]{6}$/i.test(b.cor) ? b.cor : '#3ff0d8', logo: LOGO_OK(b.logo) ? b.logo : '' })]);
-  aoVivo(l!.id); cacheCeu = null; return c.json({ ok: true, id: l!.id });
+  void aoVivo(); cacheCeu = null; return c.json({ ok: true, id: l!.id });
 });
 app.post('/api/admin/config', async (c) => {
   const b = await c.req.json().catch(() => ({} as any));
@@ -182,6 +182,6 @@ if (existsSync(dist)) {
   app.get('*', (c) => c.html(indice()));   // /@handle e afins caem no app
 }
 
-const m = await q1<{ m: number }>(`select coalesce(max(id), 0)::int m from lanternas`); aoVivo(m!.m);
+await aoVivo();
 const faltando = conferir(); if (faltando.length) console.warn('[ceu] configuração faltando:\n - ' + faltando.join('\n - '));
 serve({ fetch: app.fetch, port: config.porta }, () => console.log(`[ceu] no ar em http://localhost:${config.porta}`));

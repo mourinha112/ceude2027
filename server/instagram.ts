@@ -118,8 +118,8 @@ async function responderFila() {
 
 /* quem não escolheu em 24h: a lanterna sobe grátis sozinha (ninguém fica sem) */
 async function soltarEsquecidas() {
-  const l = await q<{ id: number }>(`update lanternas set estado = 'no_ceu', solta_em = now(), desejo = case when desejo = '' then 'um desejo guardado em segredo 🤫' else desejo end where estado = 'pendente' and criado_em < now() - interval '24 hours' returning id`);
-  for (const x of l) aoVivo(x.id);
+  const l = await q<{ id: number }>(`update lanternas set estado = 'no_ceu', solta_em = now(), ordem = nextval('lanternas_ordem'), desejo = case when desejo = '' then 'um desejo guardado em segredo 🤫' else desejo end where estado = 'pendente' and criado_em < now() - interval '24 hours' returning id`);
+  if (l.length) await aoVivo();
 }
 
 /* token de longa duração do Instagram vale 60 dias: renova sozinho a cada 7 dias */

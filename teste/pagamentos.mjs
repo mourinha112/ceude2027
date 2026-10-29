@@ -136,6 +136,16 @@ ok(r.ok && r.valor === 4.9, `presente pela página ignora personalização (${r.
 // --- página de empresas
 const pgE = await fetch(U + '/empresas'); ok(pgE.status === 200, '/empresas responde (' + pgE.status + ')');
 
+// --- ao vivo: quem comentou ANTES e soltou DEPOIS também aparece pra quem já está com o site aberto
+await j('/api/dev/comentario', { username: tag + 'v1', texto: 'Recife' });
+await j('/api/dev/comentario', { username: tag + 'v2', texto: 'Recife' });
+const [v1, v2] = (await db.query(`select id, codigo from lanternas where handle in ($1, $2) order by id`, [tag + 'v1', tag + 'v2'])).rows;
+await j(`/api/l/${v2.codigo}/soltar`, { desejo: 'paz' });
+const marco = (await j('/api/ceu/novas?desde=0')).ultimo;
+await j(`/api/l/${v1.codigo}/soltar`, { desejo: 'saúde' });
+const nv = await j(`/api/ceu/novas?desde=${marco}`);
+ok(nv.lanternas?.some((x) => x[0] === v1.id), 'lanterna de id menor solta depois chega no ao vivo');
+
 // limpeza: só o que este teste criou
 await db.query(`delete from lanternas where handle like $1 or de like $1`, [tag + '%']);
 await db.query(`delete from lanternas where handle in ('a1x','a2x','a3x','a4x')`);

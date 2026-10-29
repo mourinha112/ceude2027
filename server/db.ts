@@ -33,6 +33,10 @@ create index if not exists lanternas_cidade on lanternas (cidade, uf);
 alter table lanternas add column if not exists estado text not null default 'no_ceu';
 alter table lanternas add column if not exists codigo text unique;
 alter table lanternas add column if not exists solta_em timestamptz;
+-- ordem de soltura: o ao vivo segue por ela (o id nasce no comentário, a lanterna pode subir bem depois)
+create sequence if not exists lanternas_ordem;
+alter table lanternas add column if not exists ordem bigint not null default nextval('lanternas_ordem');
+create index if not exists lanternas_ordem_i on lanternas (ordem);
 create index if not exists lanternas_pendentes on lanternas (estado, criado_em) where estado = 'pendente';
 create table if not exists fortalecidas (lanterna_id int not null references lanternas(id) on delete cascade, aparelho text not null, criado_em timestamptz not null default now(), primary key (lanterna_id, aparelho));
 create table if not exists ig_comentarios (

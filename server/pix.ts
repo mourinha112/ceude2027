@@ -31,18 +31,18 @@ async function confirmar(pagId: string) {
   if (p.tipo === 'topo') {   // não cria lanterna: a escolhida fica no topo do céu da cidade (somando, se já estava)
     await q(`update lanternas set destaque_ate = greatest(coalesce(destaque_ate, now()), now()) + make_interval(hours => $2) where id = $1`, [p.alvo, config.horasTopo]);
     await q(`update pagamentos set lanterna_id = $2 where id = $1`, [p.id, p.alvo]);
-    aoVivo(0); return;
+    await aoVivo(); return;
   }
   if (p.tipo === 'familia') {   // a de quem comprou (a pendente do link, ou uma nova) + uma dourada pra cada @
     const ids: number[] = [];
-    const pendF = p.codigo ? await q1<{ id: number }>(`update lanternas set estado = 'no_ceu', solta_em = now(), tipo = 1, forca = greatest(forca, 0.6), desejo = coalesce($2, desejo), desejo_oculto = case when $2 is null then desejo_oculto else false end where codigo = $1 and estado = 'pendente' returning id`, [p.codigo, p.desejo]) : undefined;
+    const pendF = p.codigo ? await q1<{ id: number }>(`update lanternas set estado = 'no_ceu', solta_em = now(), ordem = nextval('lanternas_ordem'), tipo = 1, forca = greatest(forca, 0.6), desejo = coalesce($2, desejo), desejo_oculto = case when $2 is null then desejo_oculto else false end where codigo = $1 and estado = 'pendente' returning id`, [p.codigo, p.desejo]) : undefined;
     if (pendF) { ids.push(pendF.id); await vestir(pendF.id, p.visual); }
     for (const n of p.nomes || []) ids.push((await q1<{ id: number }>(`insert into lanternas (handle, desejo, cidade, uf, tipo, de, forca, origem) values ($1, $2, $3, $4, 1, $5, 0.5, 'pix') returning id`, [n, p.desejo || 'que 2027 seja incrível', p.cidade || 'Brasil', p.uf || '', n === p.handle ? null : p.handle]))!.id);
     await q(`update pagamentos set lanterna_id = $2 where id = $1`, [p.id, ids[0]]);
-    aoVivo(Math.max(...ids)); return;
+    await aoVivo(); return;
   }
   // veio do link pessoal (/l/CODIGO): a lanterna pendente dela sobe já no tipo pago
-  const pend = p.codigo ? await q1<{ id: number }>(`update lanternas set estado = 'no_ceu', solta_em = now(), tipo = $2, par = $3, forca = greatest(forca, $4), desejo = coalesce($5, desejo), desejo_oculto = case when $5 is null then desejo_oculto else false end where codigo = $1 and estado = 'pendente' returning id`,
+  const pend = p.codigo ? await q1<{ id: number }>(`update lanternas set estado = 'no_ceu', solta_em = now(), ordem = nextval('lanternas_ordem'), tipo = $2, par = $3, forca = greatest(forca, $4), desejo = coalesce($5, desejo), desejo_oculto = case when $5 is null then desejo_oculto else false end where codigo = $1 and estado = 'pendente' returning id`,
     [p.codigo, p.tipo === 'casal' ? 3 : p.tipo === 'gratis' ? 0 : 1, p.tipo === 'casal' ? p.par : null, p.tipo === 'casal' ? 0.4 : p.tipo === 'gratis' ? 0 : 0.6, p.desejo]) : undefined;
   if (pend) lid = pend.id;
   else if (p.tipo === 'dourada') {
@@ -56,7 +56,7 @@ async function confirmar(pagId: string) {
   }
   await vestir(lid, p.visual);
   await q(`update pagamentos set lanterna_id = $2 where id = $1`, [p.id, lid]);
-  aoVivo(lid);
+  await aoVivo();
 }
 /** grava a personalização por cima da que já tinha (skin tira a cor lisa e vice-versa) */
 async function vestir(id: number, v: Visual | null) {
