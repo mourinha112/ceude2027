@@ -8,7 +8,7 @@ import { Hono } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { relative, resolve } from 'node:path';
 import { config, conferir } from './config';
 import { migrar, q, q1, lerConfig, gravarConfig } from './db';
 import { registrarInstagram, processarComentario } from './instagram';
@@ -169,9 +169,11 @@ registrarInstagram(app); registrarPix(app);
 
 /* ---------- site (produção) ---------- */
 const dist = resolve(import.meta.dirname, '../dist');
+// o serveStatic dessa versão só aceita raiz relativa à pasta atual (com caminho absoluto ele não acha nada e cai no index.html)
+const raiz = relative(process.cwd(), dist) || '.';
 if (existsSync(dist)) {
-  app.use('/assets/*', serveStatic({ root: dist, onFound: (_p, c) => { c.header('cache-control', 'public, max-age=31536000, immutable'); } }));
-  app.use('/*', serveStatic({ root: dist }));
+  app.use('/assets/*', serveStatic({ root: raiz, onFound: (_p, c) => { c.header('cache-control', 'public, max-age=31536000, immutable'); } }));
+  app.use('/*', serveStatic({ root: raiz }));
   const indice = () => readFileSync(resolve(dist, 'index.html'), 'utf8');
   app.get('/admin', (c) => c.html(readFileSync(resolve(dist, 'admin.html'), 'utf8')));
   app.get('/empresas', (c) => c.html(readFileSync(resolve(dist, 'empresas.html'), 'utf8')));
