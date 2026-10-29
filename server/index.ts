@@ -65,7 +65,9 @@ app.get('/api/ceu/novas', limite('novas', 240), async (c) => {
 app.get('/api/lanterna/:handle', limite('lanterna', 120), async (c) => {
   const h = limparHandle(c.req.param('handle'));
   const l = await q<Linha>(`select ${COLS} from lanternas where not oculta and estado = 'no_ceu' and (lower(handle) = $1 or lower(par) = $1) order by (lower(handle) = $1) desc, tipo = 1 desc, id limit 5`, [h]);
-  return c.json({ ok: true, lanternas: l.map(compacto) });
+  // comentou mas ainda não abriu o link do direct: avisa que ela está esperando (o código do link nunca sai daqui)
+  const pendente = !l.length && !!(await q1(`select 1 from lanternas where lower(handle) = $1 and estado = 'pendente' limit 1`, [h]));
+  return c.json({ ok: true, lanternas: l.map(compacto), pendente });
 });
 app.post('/api/lanternas/:id/fortalecer', limite('forca', 40), async (c) => {
   const id = Number(c.req.param('id')), b = await c.req.json().catch(() => ({} as any)), ap = String(b.aparelho || '').slice(0, 40);

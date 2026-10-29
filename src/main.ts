@@ -533,6 +533,7 @@ async function irPara(h: string) {
   if (local >= 0) { mostrar(local); return; }
   if (DEMO) { aviso(`não achei @${hd}`); return; }
   const r = await api.porHandle(hd);
+  if (r.ok && !r.lanternas.length && r.pendente) { aviso(`@${hd}, sua lanterna está te esperando! Abra o link que mandamos no seu direct do ${MARCA.ig} (se não achar, olhe em Solicitações de mensagem) e escreva o desejo pra ela subir.`, 9000); return; }
   if (!r.ok || !r.lanternas.length) { aviso(`@${hd} ainda não tem lanterna no céu`, 3200); return; }
   const i = ceu.colocar(deCompacta(r.lanternas[0])); if (i >= 0) mostrar(i);
 }

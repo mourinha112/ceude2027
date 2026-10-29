@@ -12,7 +12,7 @@ const post = <T>(url: string, b: unknown) => pedir<T>(url, { method: 'POST', bod
 export const api = {
   ceu: () => pedir<CeuResp>('/api/ceu'),
   novas: (desde: number) => pedir<{ lanternas: Compacta[]; ultimo: number; total?: number }>(`/api/ceu/novas?desde=${desde}`),
-  porHandle: (h: string) => pedir<{ lanternas: Compacta[] }>(`/api/lanterna/${encodeURIComponent(h)}`),
+  porHandle: (h: string) => pedir<{ lanternas: Compacta[]; pendente?: boolean }>(`/api/lanterna/${encodeURIComponent(h)}`),
   link: (cod: string) => pedir<{ estado: 'pendente' | 'no_ceu'; lanterna: Compacta; oculto: boolean; pix: { ativo: boolean; precos: Record<string, number> } }>(`/api/l/${encodeURIComponent(cod)}`),
   soltar: (cod: string, desejo: string) => post<{ id: number; ja?: boolean }>(`/api/l/${encodeURIComponent(cod)}/soltar`, { desejo }),
   fortalecer: (id: number, aparelho: string) => post<{ forca: number }>(`/api/lanternas/${id}/fortalecer`, { aparelho }),
