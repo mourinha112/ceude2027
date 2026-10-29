@@ -86,7 +86,8 @@ const lobby = el('section', 'lobby');
   };
   pinta(); setInterval(pinta, 1000); setTimeout(trocaBil, 900); setInterval(trocaBil, 5200);
 }
-function entrarNoCeu() { if (!lobby.isConnected) return; lobby.classList.add('sai'); document.body.classList.add('no-ceu'); setTimeout(() => lobby.remove(), 900); }
+// quem chega pelo link do direct ou por /@fulano não passa pelo lobby: a interface (topo, menu) acende do mesmo jeito
+function entrarNoCeu() { document.body.classList.add('no-ceu'); if (!lobby.isConnected) return; lobby.classList.add('sai'); setTimeout(() => lobby.remove(), 900); }
 
 /* ============ HUD ============ */
 const topo = el('header', 'topo');
