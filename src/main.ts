@@ -115,7 +115,8 @@ function aviso(txt: string, ms = 2800, cls = '') {
   const a = el('div', 'aviso ' + cls, txt); ui.append(a);
   clearTimeout(avT); avT = window.setTimeout(() => { a.classList.add('sai'); setTimeout(() => a.remove(), 400); }, ms);
 }
-function noFeed(html: string) { const it = el('div', 'fd'); it.innerHTML = html; feed.prepend(it); while (feed.children.length > 3) feed.lastElementChild!.remove(); setTimeout(() => it.classList.add('velho'), 4500); }
+let ultFeed = 0;
+function noFeed(html: string) { ultFeed = Date.now(); const it = el('div', 'fd'); it.innerHTML = html; feed.prepend(it); while (feed.children.length > 3) feed.lastElementChild!.remove(); setTimeout(() => it.classList.add('velho'), 4500); }
 
 /* ============ cartão da lanterna (bilhete) ============ */
 const card = el('section', 'card'); card.hidden = true; ui.append(card);
@@ -561,6 +562,17 @@ async function aoVivoLoop() {
   }
   setTimeout(aoVivoLoop, 7000);
 }
+/* feed com movimento: entre uma soltura e outra, passa lanternas DE VERDADE que já estão no céu (nunca inventa gente) */
+function rodarFeed() {
+  if (!DEMO && document.body.classList.contains('no-ceu') && !document.hidden && Date.now() - ultFeed > 5000) {
+    const reais = ceu.L.filter((l): l is Lanterna => !!l && l.tipo !== 2 && !!l.desejo);
+    if (reais.length) {
+      const l = reais[Math.floor(Math.random() * reais.length)], d = l.desejo.length > 42 ? l.desejo.slice(0, 40) + '…' : l.desejo;
+      noFeed(`🏮 <b>@${esc(l.handle)}</b> no céu de ${esc(soNome(l.cid))}: “${esc(d)}”`);
+    }
+  }
+  setTimeout(rodarFeed, 6000 + Math.random() * 4000);
+}
 function carregarDemo() {
   const lista: Compacta[] = [];
   for (let k = 0; k < 2600; k++) { const ci = cidadeSorteada(), t = rnd() < 0.04 ? 1 : rnd() < 0.012 ? 2 : rnd() < 0.04 ? 3 : 0, e = EMPRESAS[k % EMPRESAS.length]; lista.push([k + 1, t === 2 ? e.ig : handleFake(), t === 2 ? e.oferta : DESEJOS[Math.floor(rnd() * DESEJOS.length)], `${CIDADES[ci][0]}|${CIDADES[ci][1]}`, t, rnd() < 0.08 ? rnd() * 1.2 : rnd() * 0.25, t === 3 ? handleFake() : '', '', t === 2 ? [e.nome, e.ig, e.oferta, e.cor, e.logo || ''] : 0]); }
@@ -577,7 +589,7 @@ function carregarDemo() {
 /* ============ início ============ */
 (async () => {
   if (DEMO) carregarDemo(); else await carregarCeu();
-  void aoVivoLoop();
+  void aoVivoLoop(); setTimeout(rodarFeed, 2500);
   const cam = location.pathname.match(/^\/l\/([A-Za-z0-9]{8})\/?$/), arroba = decodeURIComponent(location.pathname).match(/^\/@([\w.]{1,30})\/?$/);
   if (cam) void escolher(cam[1].toUpperCase());
   else if (arroba) { entrarNoCeu(); setTimeout(() => void irPara(arroba[1]), 600); }

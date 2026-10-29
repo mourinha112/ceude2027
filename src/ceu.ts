@@ -393,6 +393,8 @@ export function criarCeu(canvas: HTMLCanvasElement) {
       const i = usados++;
       L[i] = l; porId.set(l.id, i); sortearBase(i, perto);
       if (perto) { const a = olhar.yaw + (rnd() - 0.5) * 0.5, r = 34; aBase[i * 3] = Math.sin(a) * r; aBase[i * 3 + 2] = -Math.cos(a) * r; aBase[i * 3 + 1] = 30 + rnd() * 10; }
+      // céu ainda vazio: as primeiras lanternas de verdade ficam perto e na frente (longe elas se perdiam no meio das luzes de ambiente)
+      else if (i - AMB < 60) { const a = olhar.yaw + (rnd() - 0.5) * 1.6, r = 40 + rnd() * 60; aBase[i * 3] = Math.sin(a) * r; aBase[i * 3 + 2] = -Math.cos(a) * r; aBase[i * 3 + 1] = 24 + rnd() * (r * 0.45); }
       aTipo[i] = l.tipo; aCid[i] = l.cid; aForca[i] = l.forca; aNasc[i] = nascendo ? uni.uT.value : -50 - rnd() * 10; vestirI(i, l.vis); marcarPlaca(i, l);
       if (!lote) sujo();
       return i;
