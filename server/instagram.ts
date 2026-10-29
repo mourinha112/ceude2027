@@ -71,12 +71,41 @@ async function enviar(caminho: string, corpo: unknown) {
   const j: any = await r.json().catch(() => ({}));
   return { ok: r.ok, transit: r.status === 0 || r.status >= 500 || r.status === 429 || [2, 4, 17, 32, 613].includes(j?.error?.code), erro: String(j?.error?.message || r.status).slice(0, 300) };
 }
+/* link escrito no texto não é clicável quando a mensagem chega como solicitação: vai como botão (template).
+   Se a Meta recusar o template, manda o texto com o link como antes. */
+const BOTAO = 'Soltar lanterna 🏮';
+async function mandarDirect(recipient: { comment_id: string } | { id: string }, texto: string) {
+  const url = texto.match(/https?:\/\/\S+/)?.[0];
+  const caminho = `${encodeURIComponent(config.ig.contaId)}/messages`;
+  if (url) {
+    const corpo = texto.split(url).map((x) => x.trim()).filter(Boolean).join('\n\n').slice(0, 640);
+    const r = await enviar(caminho, { recipient, message: { attachment: { type: 'template', payload: { template_type: 'button', text: corpo, buttons: [{ type: 'web_url', url, title: BOTAO }] } } } });
+    if (r.ok || r.transit) return r;
+    console.error('[ig] botão recusado, indo de texto:', r.erro);
+  }
+  return enviar(caminho, { recipient, message: { text: texto } });
+}
+
+/* a pessoa respondeu o direct (ex.: o link não abriu): abre janela de 24h, então reenviamos o botão da lanterna pendente dela */
+async function processarMensagem(m: { sender?: { id?: string }; recipient?: { id?: string }; message?: { is_echo?: boolean } }) {
+  const igsid = String(m?.sender?.id || ''); if (!igsid || m.message?.is_echo || igsid === config.ig.contaId || !m.message) return;
+  const token = await tokenIG(); if (!token) return;
+  const u: any = await fetch(`https://graph.instagram.com/${config.ig.versao}/${encodeURIComponent(igsid)}?fields=username`, { headers: { authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(10_000) }).then((x) => x.json()).catch(() => null);
+  const h = u?.username ? limparHandle(u.username) : ''; if (!h) return;
+  const l = await q1<{ id: number; codigo: string; desejo: string; cidade: string }>(`select id, codigo, case when desejo_oculto then '' else desejo end desejo, cidade from lanternas where lower(handle) = $1 and estado = 'pendente' order by id desc limit 1`, [h]);
+  if (!l) return;
+  const ult = Number(await lerConfig(`ig_reenvio_${l.id}`) || 0); if (Date.now() - ult < 60_000) return;   // não responder em rajada
+  await gravarConfig(`ig_reenvio_${l.id}`, String(Date.now()));
+  const r = await mandarDirect({ id: igsid }, textoDirect(h, l.desejo, l.cidade, l.codigo));
+  if (!r.ok) console.error('[ig] reenvio do link', r.erro);
+}
+
 async function responderFila() {
   if (rodando || !config.ig.responder) return; rodando = true;
   try {
     const d = await q1<{ comment_id: string; direct: string; direct_tentativas: number }>(`select comment_id, direct, direct_tentativas from ig_comentarios where direct_estado = 'pendente' order by recebido_em limit 1`);
     if (d) {
-      const r = await enviar(`${encodeURIComponent(config.ig.contaId)}/messages`, { recipient: { comment_id: d.comment_id }, message: { text: d.direct } });
+      const r = await mandarDirect({ comment_id: d.comment_id }, d.direct);
       await q(`update ig_comentarios set direct_estado = $2, direct_tentativas = direct_tentativas + $3, direct_erro = $4 where comment_id = $1`, [d.comment_id, r.ok ? 'enviada' : r.transit && d.direct_tentativas < 4 ? 'pendente' : 'falhou', r.ok ? 0 : 1, r.ok ? null : r.erro]);
       return;
     }
@@ -111,6 +140,7 @@ export function registrarInstagram(app: Hono) {
     if (!assinaturaOk(bruto, c.req.header('x-hub-signature-256'))) return c.json({ ok: false }, 401);
     let corpo: any; try { corpo = JSON.parse(bruto.toString('utf8')); } catch { return c.json({ ok: false }, 400); }
     for (const e of corpo?.entry || []) if (String(e?.id ?? '') === config.ig.contaId) for (const ch of e?.changes || []) if (ch?.field === 'comments') { try { await processarComentario(ch.value); } catch (err) { console.error('[ig] comentário', err); } }
+    for (const e of corpo?.entry || []) if (String(e?.id ?? '') === config.ig.contaId) for (const m of e?.messaging || []) { try { await processarMensagem(m); } catch (err) { console.error('[ig] mensagem', err); } }
     return c.json({ ok: true });
   });
   setInterval(() => void responderFila().catch((e) => console.error('[ig] fila', e)), 3000);
