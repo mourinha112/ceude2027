@@ -315,7 +315,7 @@ async function escolher(cod: string) {
   famBox.append(el('p', 'f-nota', 'o mesmo desejo sobe nas 4, com o seu nome. Depois você manda o link pra cada um.'));
   const ok = el('button', 'btn grande'); ok.type = 'button';
   let extras: Visual = {}, vExtras = 0, pintaLink: (() => void) | undefined;
-  const pvAbrir = bt('pv-abrir', '<span><b>Turbinar seu balão</b><small>faixa com frase, skin, cor e rastro de brilho</small></span><em>opcional</em>', () => { pvAbrir.hidden = true; pv.hidden = false; });
+  const pvAbrir = bt('pv-abrir', '<i class="pv-cores"><u></u><u></u><u></u><u></u></i><span><b>Turbinar seu balão</b><small>faixa, skin, cor e brilho · opcional</small></span><em>abrir</em>', () => { pvAbrir.hidden = true; pv.hidden = false; });
   const pv = painelVisual({}, (v, p) => { extras = v; vExtras = p; pintaLink?.(); }); pv.hidden = true;
   if (!pix) pvAbrir.hidden = true;
   const pinta = () => { ops.querySelectorAll<HTMLElement>('.op').forEach((b) => b.classList.toggle('on', b.dataset.k === tipo)); fam.classList.toggle('on', tipo === 'familia'); par.hidden = tipo !== 'casal'; famBox.hidden = tipo !== 'familia'; const total = (tipo === 'gratis' ? 0 : Number(preco(tipo).replace(',', '.'))) + vExtras; ok.className = 'btn grande ' + (total ? 'ouro' : 'papel escuro'); ok.innerHTML = total ? `<span>Pagar R$ ${reais(total)} no Pix e soltar</span>` : `${ICO.lanterna}<span>Soltar minha lanterna</span>`; }; pintaLink = pinta;

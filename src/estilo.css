@@ -231,9 +231,14 @@ select.in option { color: #111; }
 .sugs[hidden] { display: none; }
 
 /* personalizar */
-.pv-abrir { width: 100%; display: flex; align-items: center; gap: 12px; border: 1.5px dashed rgba(30, 26, 40, .35); background: none; border-radius: 6px; padding: 12px 14px; color: var(--tinta); text-align: left; }
-.pv-abrir span { flex: 1; display: flex; flex-direction: column; } .pv-abrir b { font-family: var(--disp); font-weight: 800; font-size: 19px; text-transform: uppercase; } .pv-abrir small { font-size: 12px; color: var(--mudo); }
-.pv-abrir em { font-style: normal; font-size: 12px; font-weight: 700; color: var(--brasa); } .pv-abrir[hidden], .pv[hidden] { display: none; }
+.pv-abrir { width: 100%; display: flex; align-items: center; gap: 12px; border: 1.5px solid var(--tinta); background: var(--papel3); border-radius: 8px; padding: 12px 12px 12px 14px; color: var(--tinta); text-align: left; box-shadow: 0 3px 0 var(--papel2); transition: transform .12s; }
+.pv-abrir:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--papel2); }
+.pv-abrir span { flex: 1; display: flex; flex-direction: column; } .pv-abrir b { font-family: var(--disp); font-weight: 800; font-size: 19px; text-transform: uppercase; } .pv-abrir small { font-size: 12px; color: var(--tinta2); }
+.pv-abrir em { font-style: normal; font-size: 13px; font-weight: 700; background: var(--tinta); color: var(--papel); border-radius: 99px; padding: 7px 13px; }
+.pv-abrir em::after { content: ' ›'; }
+.pv-cores { display: grid; grid-template-columns: 1fr 1fr; gap: 3px; width: 26px; flex: none; } .pv-cores u { width: 11px; height: 11px; border-radius: 50%; }
+.pv-cores u:nth-child(1) { background: var(--ouro); } .pv-cores u:nth-child(2) { background: var(--rosa); } .pv-cores u:nth-child(3) { background: var(--turq); } .pv-cores u:nth-child(4) { background: var(--brasa); }
+.pv-abrir[hidden], .pv[hidden] { display: none; }
 .pv { display: flex; flex-direction: column; gap: 4px; }
 .pv-prev { position: relative; height: 150px; border-radius: 6px; background: radial-gradient(80% 90% at 50% 30%, #23245a, #0b0c22); display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding-top: 20px; overflow: hidden; margin-bottom: 6px; }
 .pv-l { position: relative; z-index: 1; width: 40px; height: 52px; border-radius: 46% 46% 28% 28%; background: linear-gradient(180deg, #e8743b, #ffcf6e 70%, #fff1c7); box-shadow: 0 0 34px 10px rgba(240, 140, 60, .45); animation: flutua 2.6s ease-in-out infinite; }
